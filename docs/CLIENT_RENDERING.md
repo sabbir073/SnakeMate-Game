@@ -35,10 +35,24 @@ touching the motion pipeline.
 Single Graphics redrawn per frame with camera-view culling (+40 wu pad).
 M2: pooled sprites from the food atlas.
 
+## Fixed-timestep render interpolation
+
+The predictor stores the pose at the previous fixed step and `renderPose()`
+lerps prev→current by `accumulator/dt`. Without this, a 60 Hz sim beats
+against the display refresh (frames alternately advance 0 or 2 steps) and the
+worm visibly hitches on a ~1 s cycle. Reconciliation shifts the interpolation
+base rigidly so corrections stay inside the error-offset smoothing.
+`e2e/smoothness.spec.ts` enforces a low coefficient of variation on rendered
+speed.
+
 ## Camera (spec §23)
 
-Exponential follow (90 ms half-life) + mass-based zoom-out
-(zoom = (10/mass)^0.12, floor 0.55). Purely render-side.
+Exponential follow (90 ms half-life) + eased mass-based zoom-out
+(zoom = (10/mass)^0.12, floor 0.55) + the ZOOM powerup's eased wide-view
+factor. On top of that, an INSTANT view-area normalization scales zoom by
+max(canvasW/1500, canvasH/850): the visible world area is constant no matter
+the window size or browser zoom, so zooming out reveals nothing (anti-cheat —
+E2E-enforced). Ctrl+wheel/±/pinch are also suppressed.
 
 ## Network simulation (spec §53)
 

@@ -14,7 +14,7 @@ export class WormRenderer {
   private bodySprites: Phaser.GameObjects.Image[] = [];
   private head: Phaser.GameObjects.Image;
   private label: Phaser.GameObjects.Text;
-  private shieldRing: Phaser.GameObjects.Arc;
+  private aura: Phaser.GameObjects.Graphics;
   private skinId = "";
   private readonly depthBase: number;
 
@@ -28,11 +28,7 @@ export class WormRenderer {
       .image(0, 0, "game-atlas", "worm-head-s0")
       .setDepth(this.depthBase + 1)
       .setVisible(false);
-    this.shieldRing = scene.add
-      .circle(0, 0, 40)
-      .setStrokeStyle(5, 0x8bd3ff, 0.9)
-      .setDepth(this.depthBase + 2)
-      .setVisible(false);
+    this.aura = scene.add.graphics().setDepth(this.depthBase + 2);
     this.label = scene.add
       .text(0, 0, nickname, {
         fontFamily: "'Baloo 2', system-ui, sans-serif",
@@ -59,12 +55,12 @@ export class WormRenderer {
 
   draw(
     x: number, y: number, angle: number, mass: number,
-    boosting: boolean, alive: boolean, shielded = false,
+    boosting: boolean, alive: boolean, effects: readonly string[] = [],
   ): void {
     if (!alive) {
       this.head.setVisible(false);
       this.label.setVisible(false);
-      this.shieldRing.setVisible(false);
+      this.aura.clear();
       for (const s of this.bodySprites) s.setVisible(false);
       return;
     }
@@ -134,10 +130,113 @@ export class WormRenderer {
     if (boosting) this.head.setTint(0xfff1c9);
     else this.head.clearTint();
 
-    this.shieldRing.setVisible(shielded);
-    if (shielded) {
-      this.shieldRing.setPosition(x, y).setRadius(radius * 1.9);
+    this.drawAuras(x, y, angle, radius, effects);
+  }
+
+  /** Wormate-style active-effect animations around the head (spec §43). */
+  private drawAuras(
+    x: number, y: number, angle: number, radius: number, effects: readonly string[],
+  ): void {
+    this.aura.clear();
+    if (effects.length === 0) return;
+    const t = performance.now() / 1000;
+
+    if (effects.includes("SHIELD")) {
+      // breathing bubble with a bright rim highlight
+      const r = radius * 2.1 + Math.sin(t * 4) * radius * 0.12;
+      this.aura.fillStyle(0x8bd3ff, 0.14);
+      this.aura.fillCircle(x, y, r);
+      this.aura.lineStyle(4, 0x8bd3ff, 0.85);
+      this.aura.strokeCircle(x, y, r);
+      this.aura.lineStyle(3, 0xffffff, 0.7);
+      this.aura.beginPath();
+      this.aura.arc(x, y, r * 0.92, -2.4, -1.2);
+      this.aura.strokePath();
     }
+
+    if (effects.includes("MAGNET")) {
+      // two expanding, fading pull-rings
+      for (const phase of [0, 0.5]) {
+        const u = (t * 1.2 + phase) % 1;
+        const r = radius * (1.4 + u * 2.6);
+        this.aura.lineStyle(3.5, 0xff5d73, 0.75 * (1 - u));
+        this.aura.strokeCircle(x, y, r);
+      }
+    }
+
+    if (effects.includes("SPEED")) {
+      // motion streaks trailing behind the heading
+      const back = angle + Math.PI;
+      for (let i = 0; i < 3; i++) {
+        const side = (i - 1) * 0.55;
+        const sx = x + Math.cos(back + side) * radius * 1.7;
+        const sy = y + Math.sin(back + side) * radius * 1.7;
+        const flick = (t * 6 + i) % 1;
+        const len = radius * (1.1 + flick * 0.8);
+        this.aura.lineStyle(4, 0xffd166, 0.8 * (1 - flick * 0.5));
+        this.aura.lineBetween(
+          sx, sy,
+          sx + Math.cos(back) * len, sy + Math.sin(back) * len,
+        );
+      }
+    }
+
+    if (effects.includes("DOUBLE_GROWTH")) {
+      // green sparkles orbiting the head
+      for (let i = 0; i < 4; i++) {
+        const a = t * 2.2 + (i / 4) * Math.PI * 2;
+        const rr = radius * 1.9;
+        const px = x + Math.cos(a) * rr;
+        const py = y + Math.sin(a) * rr * 0.8;
+        const s = radius * 0.22 * (0.8 + 0.4 * Math.sin(t * 8 + i));
+        this.aura.fillStyle(0x5ce685, 0.9);
+        this.aura.fillCircle(px, py, s);
+      }
+    }
+
+    if (effects.includes("SCORE_MULTIPLIER")) {
+      // golden stars orbiting opposite-phase
+      for (let i = 0; i < 2; i++) {
+        const a = -t * 2.8 + i * Math.PI;
+        const px = x + Math.cos(a) * radius * 2.2;
+        const py = y + Math.sin(a) * radius * 2.2;
+        this.drawStar(px, py, radius * 0.34, 0xffd166);
+      }
+    }
+
+    if (effects.includes("BOOST_REDUCTION")) {
+      // ember dots drifting off the tail direction
+      const back = angle + Math.PI;
+      for (let i = 0; i < 3; i++) {
+        const u = (t * 1.6 + i / 3) % 1;
+        const px = x + Math.cos(back + (i - 1) * 0.4) * radius * (1.5 + u * 1.8);
+        const py = y + Math.sin(back + (i - 1) * 0.4) * radius * (1.5 + u * 1.8);
+        this.aura.fillStyle(0xff8a5c, 0.85 * (1 - u));
+        this.aura.fillCircle(px, py, radius * 0.2 * (1 - u * 0.5));
+      }
+    }
+
+    if (effects.includes("ZOOM")) {
+      // expanding view-ring pulse (the camera tween is the primary feedback)
+      const u = (t * 0.9) % 1;
+      this.aura.lineStyle(3, 0xffe066, 0.6 * (1 - u));
+      this.aura.strokeCircle(x, y, radius * (2.2 + u * 2.2));
+    }
+  }
+
+  private drawStar(cx: number, cy: number, r: number, color: number): void {
+    this.aura.fillStyle(color, 0.95);
+    this.aura.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const rad = i % 2 === 0 ? r : r * 0.45;
+      const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+      const px = cx + Math.cos(a) * rad;
+      const py = cy + Math.sin(a) * rad;
+      if (i === 0) this.aura.moveTo(px, py);
+      else this.aura.lineTo(px, py);
+    }
+    this.aura.closePath();
+    this.aura.fillPath();
   }
 
   /** Reset body to a point (respawn/teleport) so the tail doesn't streak. */
@@ -151,7 +250,7 @@ export class WormRenderer {
   destroy(): void {
     this.head.destroy();
     this.label.destroy();
-    this.shieldRing.destroy();
+    this.aura.destroy();
     for (const s of this.bodySprites) s.destroy();
     this.bodySprites.length = 0;
   }

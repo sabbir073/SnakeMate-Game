@@ -1,10 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-<stop offset="0" stop-color="#7BFFB0"/><stop offset="1" stop-color="#2FB98A"/>
-</linearGradient></defs>
+<defs><radialGradient id="face" cx="0.5" cy="0.42" r="0.65">
+<stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#EDE6FA"/>
+</radialGradient><radialGradient id="ring" cx="0.5" cy="0.42" r="0.65">
+<stop offset="0" stop-color="#7deb9d"/><stop offset="1" stop-color="#5CE685"/>
+</radialGradient><radialGradient id="halo" cx="0.5" cy="0.42" r="0.65">
+<stop offset="0" stop-color="#5CE68566"/><stop offset="1" stop-color="#5CE68500"/>
+</radialGradient></defs>
 
-<path d="M 128 25.599999999999994 L 216.68100134752652 76.8 L 216.68100134752655 179.2 L 128 230.4 L 39.318998652473496 179.20000000000005 L 39.31899865247348 76.79999999999998 Z" fill="url(#g)" stroke="#2B1A3D" stroke-width="14.08" stroke-linejoin="round"/>
-<path d="M 128 25.599999999999994 L 216.68100134752652 76.8 L 216.68100134752655 179.2 L 128 230.4 L 39.318998652473496 179.20000000000005 L 39.31899865247348 76.79999999999998 Z" fill="none" stroke="#ffffff" stroke-width="6.336" stroke-linejoin="round" opacity="0.35" transform="translate(0 -8.448) scale(0.92) " transform-origin="128 128"/>
-<path d="M 128 58 L 168 106 L 142 106 L 142 138 L 114 138 L 114 106 L 88 106 Z" fill="#ffffff" stroke="#2B1A3D" stroke-width="6" stroke-linejoin="round"/><path d="M 128 130 L 168 178 L 142 178 L 142 206 L 114 206 L 114 178 L 88 178 Z" fill="#ffffff" stroke="#2B1A3D" stroke-width="6" stroke-linejoin="round"/>
+<circle cx="128" cy="128" r="125.44" fill="url(#halo)"/>
+<circle cx="128" cy="128" r="102.4" fill="url(#ring)" stroke="#2B1A3D" stroke-width="11.52"/>
+<circle cx="128" cy="128" r="79.36" fill="url(#face)" stroke="#2B1A3D" stroke-width="8.064"/>
+<g transform="translate(128 128) scale(0.62) translate(-128 -128)"><path d="M 128 52 L 172 104 L 144 104 L 144 132 L 112 132 L 112 104 L 84 104 Z" fill="#5CE685" stroke="#2B1A3D" stroke-width="7" stroke-linejoin="round"/><path d="M 128 128 L 172 180 L 144 180 L 144 206 L 112 206 L 112 180 L 84 180 Z" fill="#5CE685" stroke="#2B1A3D" stroke-width="7" stroke-linejoin="round"/></g>
+<ellipse cx="97.28" cy="74.752" rx="34.816" ry="16.384"
+  fill="#ffffff" opacity="0.65" transform="rotate(-24 97.28 74.752)"/>
 </svg>

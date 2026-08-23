@@ -24,6 +24,7 @@ export interface StartOptions {
 
 interface RemoteEntry {
   nickname: string;
+  effects: string[];
   buffer: SnapshotBuffer;
   renderer: WormRenderer;
 }
@@ -54,12 +55,23 @@ function maybeDelay(fn: () => void): void {
 
 /** Sprite display scale per food kind (frame content varies per silhouette). */
 const FOOD_SCALE: Record<FoodKind, number> = {
-  COMMON: 3.4,
-  RARE: 3.4,
-  EPIC: 2.6,
-  BONUS: 2.7,
-  DEATH_LOOT: 3.4,
+  COMMON: 4.6,
+  RARE: 4.4,
+  EPIC: 3.6,
+  BONUS: 3.2,
+  DEATH_LOOT: 4.0,
 };
+
+/** Frame-variant counts per kind (wormate-style variety). */
+const FOOD_VARIANTS: Record<FoodKind, number> = {
+  COMMON: 6, RARE: 3, EPIC: 2, BONUS: 2, DEATH_LOOT: 1,
+};
+
+function foodFrame(kind: FoodKind, id: number): string {
+  const variants = FOOD_VARIANTS[kind];
+  if (variants <= 1) return `food-${kind.toLowerCase()}`;
+  return `food-${kind.toLowerCase()}-${id % variants}`;
+}
 
 class ArenaScene extends Phaser.Scene {
   private predictor!: LocalPredictor;
@@ -83,6 +95,7 @@ class ArenaScene extends Phaser.Scene {
   private fpsAccum = 0;
   private fpsFrames = 0;
   private fps = 60;
+  private massZoomEased = CAMERA.baseZoom;
   private inputSeq = 0;
   private boostHeld = false;
   private localAlive = true;
@@ -210,6 +223,7 @@ class ArenaScene extends Phaser.Scene {
       }
       const entry: RemoteEntry = {
         nickname: w.nickname,
+        effects: [],
         buffer: new SnapshotBuffer(),
         renderer: new WormRenderer(this, w.nickname, false),
       };
@@ -219,9 +233,11 @@ class ArenaScene extends Phaser.Scene {
         const snap = {
           x: w.x, y: w.y, angle: w.angle, mass: w.mass,
           boosting: w.boosting, alive: w.alive, nickname: w.nickname,
+          effects: w.effects ? String(w.effects).split(",").filter(Boolean) : [],
         };
         maybeDelay(() => {
           entry.nickname = snap.nickname;
+          entry.effects = snap.effects;
           entry.buffer.push({ t: performance.now(), ...snap });
         });
       });
@@ -409,6 +425,13 @@ class ArenaScene extends Phaser.Scene {
       pingMs: this.pingMs,
       x: this.predictor.worm.x,
       y: this.predictor.worm.y,
+      renderX: this.predictor.renderPose().x,
+      renderY: this.predictor.renderPose().y,
+      viewW: this.cameras.main.worldView.width,
+      viewH: this.cameras.main.worldView.height,
+      camW: this.cameras.main.width,
+      camH: this.cameras.main.height,
+      camZoom: this.cameras.main.zoom,
     };
   }
 
@@ -441,7 +464,7 @@ class ArenaScene extends Phaser.Scene {
       this.predictor.worm.mass,
       this.predictor.worm.boosting,
       this.localAlive,
-      this.localEffects.includes("SHIELD"),
+      this.localEffects,
     );
   }
 
@@ -451,7 +474,7 @@ class ArenaScene extends Phaser.Scene {
       const s = entry.buffer.sample(now);
       if (!s) continue;
       entry.renderer.setNickname(entry.nickname);
-      entry.renderer.draw(s.x, s.y, s.angle, s.mass, s.boosting, s.alive);
+      entry.renderer.draw(s.x, s.y, s.angle, s.mass, s.boosting, s.alive, entry.effects);
     }
   }
 
@@ -473,14 +496,14 @@ class ArenaScene extends Phaser.Scene {
       }
       let sprite = this.foodPool[used];
       if (!sprite) {
-        sprite = this.add.image(0, 0, "game-atlas", "food-common").setDepth(3);
+        sprite = this.add.image(0, 0, "game-atlas", "food-common-0").setDepth(3);
         this.foodPool.push(sprite);
       }
       const size = f.radius * FOOD_SCALE[f.kind] * (f.kind === "BONUS" || f.kind === "EPIC" ? 1 : bob);
       const phase = (id % 7) / 7;
       sprite
         .setVisible(true)
-        .setFrame(`food-${f.kind.toLowerCase()}`)
+        .setFrame(foodFrame(f.kind, id))
         .setPosition(
           f.x,
           f.y + (animate ? Math.sin(performance.now() / 500 + phase * 6.28) * 1.5 : 0),
@@ -512,7 +535,7 @@ class ArenaScene extends Phaser.Scene {
         sprite = this.add.image(0, 0, "game-atlas", "powerup-speed").setDepth(4);
         this.powerupPool.push(sprite);
       }
-      const size = 44 * pulse;
+      const size = 54 * pulse;
       sprite
         .setVisible(true)
         .setFrame(`powerup-${p.kind.toLowerCase()}`)
@@ -532,12 +555,25 @@ class ArenaScene extends Phaser.Scene {
       cam.midPoint.x + (pose.x - cam.midPoint.x) * alpha,
       cam.midPoint.y + (pose.y - cam.midPoint.y) * alpha,
     );
+
+    // mass-based zoom-out (eased), floored; ZOOM powerup widens the view —
+    // the ease-in/out of this factor IS the wormate-style zoom animation
     const mass = this.predictor.worm.mass;
-    const targetZoom = Math.max(
+    let massZoom = Math.max(
       CAMERA.minZoom,
       CAMERA.baseZoom * Math.pow(WORM.spawnMass / Math.max(mass, WORM.spawnMass), CAMERA.zoomExp),
     );
-    cam.setZoom(cam.zoom + (targetZoom - cam.zoom) * alpha * 0.5);
+    if (this.localEffects.includes("ZOOM")) massZoom /= CAMERA.zoomPowerupFactor;
+    this.massZoomEased += (massZoom - this.massZoomEased) * alpha * 0.5;
+
+    // fairness normalization, applied INSTANTLY: the visible world area is
+    // constant regardless of canvas size — resizing or browser-zooming can
+    // never reveal more of the map (anti-cheat).
+    const viewScale = Math.max(
+      cam.width / CAMERA.viewRefWidth,
+      cam.height / CAMERA.viewRefHeight,
+    );
+    cam.setZoom(this.massZoomEased * viewScale);
   }
 }
 

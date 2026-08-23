@@ -67,6 +67,27 @@ async function onPlay(): Promise<void> {
   }
 }
 
+// ── anti-cheat: neutralize browser zoom ──────────────────────────────────────
+// The camera already normalizes the visible world area to the canvas size, so
+// zooming reveals nothing — these guards just stop accidental page zoom from
+// degrading the experience.
+window.addEventListener(
+  "wheel",
+  (e) => {
+    if (e.ctrlKey) e.preventDefault();
+  },
+  { passive: false },
+);
+window.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && ["+", "-", "=", "_", "0"].includes(e.key)) {
+    e.preventDefault();
+  }
+});
+// Safari pinch gestures
+for (const evt of ["gesturestart", "gesturechange", "gestureend"]) {
+  window.addEventListener(evt, (e) => e.preventDefault(), { passive: false } as AddEventListenerOptions);
+}
+
 // PWA service worker — production only (dev server would fight the cache)
 if (!import.meta.env.DEV && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {

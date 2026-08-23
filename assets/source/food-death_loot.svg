@@ -1,13 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
 <defs><radialGradient id="g" cx="0.5" cy="0.42" r="0.65">
-<stop offset="0" stop-color="#FFE1B0"/><stop offset="1" stop-color="#FFA94D"/>
+<stop offset="0" stop-color="#FFF0CE"/><stop offset="1" stop-color="#FFB545"/>
 </radialGradient><radialGradient id="halo" cx="0.5" cy="0.42" r="0.65">
-<stop offset="0" stop-color="#FFC97E"/><stop offset="1" stop-color="#FFA94D00"/>
+<stop offset="0" stop-color="#FFC97E99"/><stop offset="1" stop-color="#FFA94D00"/>
 </radialGradient></defs>
 
-<circle cx="128" cy="128" r="122.88" fill="url(#halo)" opacity="0.8"/>
-<circle cx="128" cy="128" r="76.8" fill="url(#g)" stroke="#2B1A3D" stroke-width="14.08"/>
-<circle cx="128" cy="128" r="30.72" fill="#FFF3DD" opacity="0.9"/>
-<ellipse cx="103.424" cy="95.744" rx="26.112000000000002" ry="16.896" fill="#ffffff" opacity="0.55" transform="rotate(-24 103.424 95.744)"/>
+<circle cx="128" cy="128" r="122.88" fill="url(#halo)"/>
+<circle cx="128" cy="128" r="71.68" fill="url(#g)" stroke="#2B1A3D" stroke-width="12.8"/>
+<circle cx="128" cy="128" r="32.25600000000001" fill="#FFFBEE" opacity="0.95"/>
+<ellipse cx="105.0624" cy="97.89439999999999" rx="24.371200000000005" ry="15.769600000000002" fill="#ffffff" opacity="0.55" transform="rotate(-24 105.0624 97.89439999999999)"/>
+<path d="M 179.6096 60.620799999999996 Q 181.97504 74.02496 195.3792 76.3904
+    Q 181.97504 78.75584 179.6096 92.16
+    Q 177.24416 78.75584 163.84 76.3904
+    Q 177.24416 74.02496 179.6096 60.620799999999996 Z"
+    fill="#ffffff" opacity="0.9"/>
+<path d="M 67.072 153.8048 Q 68.57728 162.33472 77.1072 163.84
+    Q 68.57728 165.34528 67.072 173.8752
+    Q 65.56672 165.34528 57.0368 163.84
+    Q 65.56672 162.33472 67.072 153.8048 Z"
+    fill="#ffffff" opacity="0.7"/>
 </svg>

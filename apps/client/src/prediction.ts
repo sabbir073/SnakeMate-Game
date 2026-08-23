@@ -27,6 +27,11 @@ export class LocalPredictor {
   readonly worm: WormState;
   private pending: WormInput[] = [];
   private accumulator = 0;
+  /** Pose at the PREVIOUS fixed step — renderPose interpolates prev→current
+   *  by accumulator/dt, eliminating fixed-timestep aliasing judder. */
+  private prevX = 0;
+  private prevY = 0;
+  private prevAngle = 0;
   /** Render-error offset, decays toward zero. */
   private errX = 0;
   private errY = 0;
@@ -39,6 +44,9 @@ export class LocalPredictor {
       id: "local", ownerId: "local", nickname: "", skinId: "s0",
       x: spawnX, y: spawnY, angle, spawnTick: 0,
     });
+    this.prevX = spawnX;
+    this.prevY = spawnY;
+    this.prevAngle = angle;
   }
 
   get pendingCount(): number {
@@ -65,6 +73,10 @@ export class LocalPredictor {
     this.accumulator += Math.min(dtSec, 0.25);
     while (this.accumulator >= SIM.dt) {
       this.accumulator -= SIM.dt;
+      // snapshot the pose BEFORE stepping — renderPose lerps across this step
+      this.prevX = this.worm.x;
+      this.prevY = this.worm.y;
+      this.prevAngle = this.worm.angle;
       const input = makeInput();
       this.pending.push(input);
       applyInput(this.worm, input);
@@ -102,6 +114,12 @@ export class LocalPredictor {
       stepWormMovement(this.worm, 0);
     }
 
+    // keep the interpolation base continuous across the correction so the
+    // lerp segment translates rigidly (the error offset absorbs the jump)
+    this.prevX += this.worm.x - prevX;
+    this.prevY += this.worm.y - prevY;
+    this.prevAngle = wrapAngle(this.prevAngle + angleDelta(prevAngle, this.worm.angle));
+
     // residual error → smooth offset (rendered position = predicted + err)
     this.errX = prevX - this.worm.x + this.errX;
     this.errY = prevY - this.worm.y + this.errY;
@@ -116,12 +134,19 @@ export class LocalPredictor {
     }
   }
 
-  /** Position/angle to RENDER this frame (prediction + decaying error offset). */
+  /** Position/angle to RENDER this frame: prediction interpolated across the
+   *  fixed-step boundary (accumulator fraction) + decaying error offset.
+   *  Without the interpolation, 60 Hz sim vs display refresh beats visibly
+   *  (~1 s judder cycle). */
   renderPose(): { x: number; y: number; angle: number } {
+    const a = Math.min(this.accumulator / SIM.dt, 1);
+    const x = this.prevX + (this.worm.x - this.prevX) * a;
+    const y = this.prevY + (this.worm.y - this.prevY) * a;
+    const angle = this.prevAngle + angleDelta(this.prevAngle, this.worm.angle) * a;
     return {
-      x: this.worm.x + this.errX,
-      y: this.worm.y + this.errY,
-      angle: wrapAngle(this.worm.angle + this.errAngle),
+      x: x + this.errX,
+      y: y + this.errY,
+      angle: wrapAngle(angle + this.errAngle),
     };
   }
 }

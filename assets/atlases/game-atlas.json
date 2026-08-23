@@ -360,9 +360,29 @@
         "h": 96
       }
     },
-    "food-bonus": {
+    "powerup-zoom": {
       "frame": {
         "x": 196,
+        "y": 130,
+        "w": 96,
+        "h": 96
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      },
+      "sourceSize": {
+        "w": 96,
+        "h": 96
+      }
+    },
+    "food-bonus-0": {
+      "frame": {
+        "x": 294,
         "y": 130,
         "w": 64,
         "h": 64
@@ -380,9 +400,129 @@
         "h": 64
       }
     },
-    "food-common": {
+    "food-bonus-1": {
       "frame": {
-        "x": 262,
+        "x": 360,
+        "y": 130,
+        "w": 64,
+        "h": 64
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      }
+    },
+    "food-common-0": {
+      "frame": {
+        "x": 426,
+        "y": 130,
+        "w": 64,
+        "h": 64
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      }
+    },
+    "food-common-1": {
+      "frame": {
+        "x": 492,
+        "y": 130,
+        "w": 64,
+        "h": 64
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      }
+    },
+    "food-common-2": {
+      "frame": {
+        "x": 558,
+        "y": 130,
+        "w": 64,
+        "h": 64
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      }
+    },
+    "food-common-3": {
+      "frame": {
+        "x": 624,
+        "y": 130,
+        "w": 64,
+        "h": 64
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      }
+    },
+    "food-common-4": {
+      "frame": {
+        "x": 690,
+        "y": 130,
+        "w": 64,
+        "h": 64
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      }
+    },
+    "food-common-5": {
+      "frame": {
+        "x": 756,
         "y": 130,
         "w": 64,
         "h": 64
@@ -402,7 +542,7 @@
     },
     "food-death_loot": {
       "frame": {
-        "x": 328,
+        "x": 822,
         "y": 130,
         "w": 64,
         "h": 64
@@ -420,9 +560,9 @@
         "h": 64
       }
     },
-    "food-epic": {
+    "food-epic-0": {
       "frame": {
-        "x": 394,
+        "x": 888,
         "y": 130,
         "w": 64,
         "h": 64
@@ -440,9 +580,69 @@
         "h": 64
       }
     },
-    "food-rare": {
+    "food-epic-1": {
       "frame": {
-        "x": 460,
+        "x": 954,
+        "y": 130,
+        "w": 64,
+        "h": 64
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      }
+    },
+    "food-rare-0": {
+      "frame": {
+        "x": 1020,
+        "y": 130,
+        "w": 64,
+        "h": 64
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      }
+    },
+    "food-rare-1": {
+      "frame": {
+        "x": 1086,
+        "y": 130,
+        "w": 64,
+        "h": 64
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 64,
+        "h": 64
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      }
+    },
+    "food-rare-2": {
+      "frame": {
+        "x": 1152,
         "y": 130,
         "w": 64,
         "h": 64

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<defs><radialGradient id="face" cx="0.5" cy="0.42" r="0.65">
+<stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#EDE6FA"/>
+</radialGradient><radialGradient id="ring" cx="0.5" cy="0.42" r="0.65">
+<stop offset="0" stop-color="#ffe685"/><stop offset="1" stop-color="#FFE066"/>
+</radialGradient><radialGradient id="halo" cx="0.5" cy="0.42" r="0.65">
+<stop offset="0" stop-color="#FFE06666"/><stop offset="1" stop-color="#FFE06600"/>
+</radialGradient></defs>
+
+<circle cx="128" cy="128" r="125.44" fill="url(#halo)"/>
+<circle cx="128" cy="128" r="102.4" fill="url(#ring)" stroke="#2B1A3D" stroke-width="11.52"/>
+<circle cx="128" cy="128" r="79.36" fill="url(#face)" stroke="#2B1A3D" stroke-width="8.064"/>
+<g transform="translate(128 128) scale(0.62) translate(-128 -128)">
+<circle cx="114" cy="112" r="44" fill="#ffffff" stroke="#2B1A3D" stroke-width="9"/>
+<circle cx="114" cy="112" r="44" fill="none" stroke="#FFE066" stroke-width="14"/>
+<path d="M 146 148 L 186 190" stroke="#2B1A3D" stroke-width="30" stroke-linecap="round"/>
+<path d="M 146 148 L 184 188" stroke="#EBC33B" stroke-width="18" stroke-linecap="round"/>
+<path d="M 98 112 L 130 112 M 114 96 L 114 128" stroke="#FFE066" stroke-width="10" stroke-linecap="round"/></g>
+<ellipse cx="97.28" cy="74.752" rx="34.816" ry="16.384"
+  fill="#ffffff" opacity="0.65" transform="rotate(-24 97.28 74.752)"/>
+</svg>

@@ -113,7 +113,8 @@ export const FOOD_RULES = {
 } as const;
 
 export type PowerupKind =
-  | "SPEED" | "MAGNET" | "DOUBLE_GROWTH" | "SHIELD" | "BOOST_REDUCTION" | "SCORE_MULTIPLIER";
+  | "SPEED" | "MAGNET" | "DOUBLE_GROWTH" | "SHIELD" | "BOOST_REDUCTION"
+  | "SCORE_MULTIPLIER" | "ZOOM";
 
 export const POWERUPS: Record<PowerupKind, {
   durationSec: number; spawnWeight: number; radius: number;
@@ -124,6 +125,7 @@ export const POWERUPS: Record<PowerupKind, {
   SHIELD: { durationSec: 6, spawnWeight: 12, radius: 16 },
   BOOST_REDUCTION: { durationSec: 15, spawnWeight: 12, radius: 16 },
   SCORE_MULTIPLIER: { durationSec: 15, spawnWeight: 8, radius: 16 },
+  ZOOM: { durationSec: 12, spawnWeight: 16, radius: 16 },
 };
 
 export const POWERUP_RULES = {
@@ -164,6 +166,13 @@ export const CAMERA = {
   minZoom: 0.55,
   /** Camera position smoothing half-life (seconds). */
   smoothHalfLife: 0.09,
+  /** Fairness reference viewport (wu visible at massZoom 1) — the camera
+   *  normalizes to this no matter the canvas/browser-zoom size, so resizing
+   *  or zooming the browser can never reveal more of the world (anti-cheat). */
+  viewRefWidth: 1500,
+  viewRefHeight: 850,
+  /** ZOOM powerup: extra view multiplier while active (fair — server-granted). */
+  zoomPowerupFactor: 1.35,
 } as const;
 
 /** Anti-cheat envelopes (spec §54) — tolerances above theoretical maxima so

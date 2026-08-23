@@ -1,0 +1,18 @@
+# Staging overlay (spec §119): isolated ports/volumes/secrets from production.
+#   docker compose -f docker-compose.yml -f docker-compose.staging.yml \
+#     --env-file .env.staging -p nibblio-staging up -d --build
+# .env.staging must define its OWN POSTGRES_PASSWORD / SESSION_SECRET /
+# SITE_ADDRESS (e.g. staging.yourdomain.com) — never reuse production values.
+services:
+  web:
+    ports:
+      - "${WEB_HTTP_PORT:-8081}:80"
+volumes:
+  pg-data:
+    name: nibblio-staging-pg
+  redis-data:
+    name: nibblio-staging-redis
+  caddy-data:
+    name: nibblio-staging-caddy
+  caddy-config:
+    name: nibblio-staging-caddy-cfg

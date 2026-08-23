@@ -10,6 +10,8 @@
     <meta name="description" content="Nibblio — eat, grow, outslither everyone. Free browser multiplayer worm arena." />
     <title>Nibblio — multiplayer worm arena</title>
     <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/assets/icon-192.png" />
     <meta property="og:title" content="Nibblio — multiplayer worm arena" />
     <meta property="og:description" content="Eat. Grow. Outslither everyone. Free browser multiplayer worm arena." />
     <meta property="og:image" content="/social-preview.png" />
@@ -92,6 +94,12 @@
       .skin-dot:hover { transform: scale(1.12); }
       .skin-dot.selected { border-color: #ffd166; transform: scale(1.12); }
       .version { position: absolute; bottom: 10px; right: 14px; color: #55428a; font-size: 11px; }
+      .footer-links {
+        position: absolute; bottom: 10px; left: 0; right: 0;
+        text-align: center; font-size: 12px;
+      }
+      .footer-links a { color: #8f7cc9; text-decoration: none; margin: 0 10px; }
+      .footer-links a:hover { color: #b9a7e6; }
       .gear-btn {
         background: rgba(29, 15, 66, 0.8); color: #b9a7e6;
         border: 1px solid #3a2477; border-radius: 12px;
@@ -211,6 +219,11 @@
         <button id="play">PLAY</button>
         <div id="status" role="status"></div>
         <button class="gear-btn" id="settings-btn-home" aria-label="Settings" style="position:absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right));">⚙</button>
+        <div class="footer-links">
+          <a href="/legal/about.html">How to play</a>
+          <a href="/legal/privacy.html">Privacy</a>
+          <a href="/legal/terms.html">Terms</a>
+        </div>
         <div class="version" id="version"></div>
       </div>
     </div>

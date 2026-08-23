@@ -3,8 +3,16 @@
 # Production overlay adds real ports/TLS: see docker-compose.prod.yml.
 name: nibblio
 
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
 services:
   game-server:
+    <<: *logging
     build:
       context: .
       dockerfile: docker/server.Dockerfile
@@ -27,6 +35,7 @@ services:
       - "2567"
 
   web:
+    <<: *logging
     build:
       context: .
       dockerfile: docker/web.Dockerfile
@@ -42,6 +51,7 @@ services:
       - caddy-config:/config
 
   postgres:
+    <<: *logging
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
@@ -58,6 +68,7 @@ services:
     # never published publicly (spec §66)
 
   redis:
+    <<: *logging
     image: redis:8-alpine
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]

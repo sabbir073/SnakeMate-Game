@@ -67,6 +67,32 @@ async function onPlay(): Promise<void> {
   }
 }
 
+// PWA service worker — production only (dev server would fight the cache)
+if (!import.meta.env.DEV && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => { /* non-fatal */ });
+  });
+}
+
+// client error telemetry (spec §89): type/version/UA only — nothing sensitive
+let errorsSent = 0;
+window.addEventListener("error", (e) => {
+  if (errorsSent >= 5) return; // hard cap per session
+  errorsSent++;
+  try {
+    void fetch("/api/client-error", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        message: String(e.message).slice(0, 300),
+        source: String(e.filename ?? "").slice(0, 200),
+        version: CLIENT_VERSION,
+        ua: navigator.userAgent.slice(0, 200),
+      }),
+    });
+  } catch { /* never break the game for telemetry */ }
+});
+
 playBtn.addEventListener("click", () => void onPlay());
 document.getElementById("settings-btn-home")?.addEventListener("click", openSettings);
 document.getElementById("settings-btn-game")?.addEventListener("click", openSettings);

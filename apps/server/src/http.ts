@@ -1,6 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { PROTOCOL_VERSION } from "@nibblio/protocol";
+import { logger } from "./logger.js";
 import { snapshotMetrics } from "./metrics.js";
+import { rateLimit } from "./rate-limit.js";
 import { SERVER_VERSION } from "./version.js";
 
 export interface HealthProviders {
@@ -55,6 +57,42 @@ export function handleHttp(
     case "/metrics":
       json(res, 200, snapshotMetrics());
       return true;
+
+    case "/api/client-error": {
+      if (req.method !== "POST") {
+        json(res, 405, { error: "method_not_allowed" });
+        return true;
+      }
+      const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+        ?? req.socket.remoteAddress ?? "unknown";
+      void (async () => {
+        if (!(await rateLimit(`cerr:${ip}`, 10, 60))) {
+          json(res, 429, { error: "rate_limited" });
+          return;
+        }
+        let body = "";
+        req.on("data", (chunk: Buffer) => {
+          if (body.length < 4096) body += chunk.toString("utf8");
+        });
+        req.on("end", () => {
+          try {
+            const payload = JSON.parse(body) as Record<string, unknown>;
+            logger.warn(
+              {
+                event: "client_error",
+                message: String(payload.message ?? "").slice(0, 300),
+                source: String(payload.source ?? "").slice(0, 200),
+                clientVersion: String(payload.version ?? "").slice(0, 40),
+                ua: String(payload.ua ?? "").slice(0, 200),
+              },
+              "client-side error reported",
+            );
+          } catch { /* malformed — ignore */ }
+          json(res, 200, { ok: true });
+        });
+      })();
+      return true;
+    }
 
     default:
       return false; // let Colyseus/matchmaking handle it

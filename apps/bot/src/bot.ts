@@ -54,6 +54,7 @@ export class Bot {
         nickname: `Bot${this.id}`,
         skinId: `s${this.id % 6}`,
         channel: this.channel,
+        guestId: `bot-${this.channel}-${this.id}`,
       });
       this.stats.joined++;
     } catch (err) {

@@ -1,44 +1,72 @@
 import Phaser from "phaser";
 import { getStateCallbacks } from "colyseus.js";
-import { CAMERA, GAME, NET, WORM } from "@nibblio/config";
-import { lerpAngle, wrapAngle } from "@nibblio/shared";
-import { radiusForMass, lengthForMass } from "@nibblio/game-core";
+import { CAMERA, FOOD, GAME, WORM } from "@nibblio/config";
+import type { FoodKind } from "@nibblio/config";
+import { wrapAngle } from "@nibblio/shared";
+import type { WormInput } from "@nibblio/game-core";
 import { connect } from "./net.js";
 import type { Connection } from "./net.js";
-
-/** M0 arena scene — renders authoritative state with exponential smoothing and
- *  sends pointer-follow inputs. M1 replaces the smoothing model with client
- *  prediction (local worm) + snapshot interpolation (remote worms). */
-
-interface RenderWorm {
-  id: string;
-  nickname: string;
-  // latest authoritative state
-  tx: number;
-  ty: number;
-  tangle: number;
-  mass: number;
-  alive: boolean;
-  boosting: boolean;
-  // rendered (smoothed) state
-  x: number;
-  y: number;
-  angle: number;
-  segments: Array<{ x: number; y: number }>;
-  gfx: Phaser.GameObjects.Graphics;
-  label: Phaser.GameObjects.Text;
-}
+import { LocalPredictor } from "./prediction.js";
+import { SnapshotBuffer } from "./interpolation.js";
+import { WormRenderer } from "./worm-renderer.js";
+import { Hud } from "./hud.js";
 
 export interface StartOptions {
   nickname: string;
   onStatus: (status: string) => void;
 }
 
+interface RemoteEntry {
+  nickname: string;
+  buffer: SnapshotBuffer;
+  renderer: WormRenderer;
+}
+
+interface FoodEntry {
+  kind: FoodKind;
+  x: number;
+  y: number;
+  value: number;
+  /** pickup animation progress; <0 = idle */
+  scale: number;
+}
+
+/** Network-condition simulation (spec §53): `?fakeLag=150` adds 75ms each way
+ *  to inputs and state updates — for testing prediction/interpolation. Dev tool
+ *  only; the server never trusts anything about it. */
+const FAKE_LAG_MS = (() => {
+  try {
+    return Math.max(0, Number(new URLSearchParams(location.search).get("fakeLag") ?? 0));
+  } catch {
+    return 0;
+  }
+})();
+
+function maybeDelay(fn: () => void): void {
+  if (FAKE_LAG_MS > 0) setTimeout(fn, FAKE_LAG_MS / 2);
+  else fn();
+}
+
+const FOOD_COLORS: Record<FoodKind, number> = {
+  COMMON: 0x64d2ff,
+  RARE: 0x7bffb0,
+  EPIC: 0xff8af5,
+  BONUS: 0xffe066,
+  DEATH_LOOT: 0xffa94d,
+};
+
 class ArenaScene extends Phaser.Scene {
-  private worms = new Map<string, RenderWorm>();
+  private predictor!: LocalPredictor;
+  private localRenderer!: WormRenderer;
+  private remotes = new Map<string, RemoteEntry>();
+  private food = new Map<number, FoodEntry>();
+  private foodGfx!: Phaser.GameObjects.Graphics;
+  private hud!: Hud;
   private inputSeq = 0;
-  private inputTimer = 0;
   private boostHeld = false;
+  private localAlive = true;
+  private localMassView = WORM.spawnMass;
+  private localScore = 0;
 
   constructor(private readonly conn: Connection) {
     super("arena");
@@ -48,66 +76,116 @@ class ArenaScene extends Phaser.Scene {
     const worldSize = this.conn.welcome.worldSize;
     this.cameras.main.setBackgroundColor(GAME.backgroundColor);
 
-    // background grid + border — placeholder decor until the art pass (M2)
-    this.add.grid(
-      worldSize / 2, worldSize / 2, worldSize, worldSize, 160, 160,
-      0x160b33, 1, 0x241348, 0.6,
-    );
-    const border = this.add.graphics();
-    border.lineStyle(12, 0xe84393, 0.9);
+    // decor placeholders until the art pass (M2)
+    this.add
+      .grid(worldSize / 2, worldSize / 2, worldSize, worldSize, 160, 160, 0x160b33, 1, 0x241348, 0.6)
+      .setDepth(0);
+    const border = this.add.graphics().setDepth(1);
+    border.lineStyle(14, 0xe84393, 0.9);
     border.strokeRect(0, 0, worldSize, worldSize);
 
+    this.foodGfx = this.add.graphics().setDepth(3);
+
+    // local predictor boots at world center; first reconcile snaps to truth
+    this.predictor = new LocalPredictor(worldSize / 2, worldSize / 2, 0);
+    this.localRenderer = new WormRenderer(this, "", true);
+
+    this.hud = new Hud(() => {
+      this.conn.requestRespawn();
+    });
+    this.hud.show();
+
     this.wireState();
+    this.wireMessages();
     this.wireInput();
 
     this.events.on(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.hud.hide();
       void this.conn.leave();
     });
   }
+
+  // ── colyseus wiring ───────────────────────────────────────────────────────
 
   private wireState(): void {
     const $ = getStateCallbacks(this.conn.room);
     const state = this.conn.room.state;
     const worms = $(state).worms;
-    if (!worms) throw new Error("room state missing worms collection");
+    const food = $(state).food;
+    if (!worms || !food) throw new Error("room state missing collections");
+    const ownId = this.conn.room.sessionId;
 
     worms.onAdd((w, key: string) => {
-      const worm: RenderWorm = {
-        id: key,
+      if (key === ownId) {
+        // authoritative updates for the local worm feed the predictor
+        this.localRenderer.setNickname(w.nickname);
+        $(w).onChange(() => {
+          // capture immediately; apply after the simulated downlink delay
+          const update = {
+            x: w.x, y: w.y, angle: w.angle, mass: w.mass,
+            boosting: w.boosting, alive: w.alive, lastInputSeq: w.lastInputSeq,
+          };
+          maybeDelay(() => {
+            const wasAlive = this.localAlive;
+            this.predictor.reconcile(update);
+            this.localAlive = update.alive;
+            this.localMassView = update.mass;
+            if (!wasAlive && update.alive) {
+              // respawned — reset the rendered body so the tail doesn't streak
+              this.localRenderer.resetBodyAt(update.x, update.y);
+              this.hud.hideDeath();
+            }
+          });
+        });
+        return;
+      }
+      const entry: RemoteEntry = {
         nickname: w.nickname,
-        tx: w.x, ty: w.y, tangle: w.angle,
-        mass: w.mass, alive: w.alive, boosting: w.boosting,
-        x: w.x, y: w.y, angle: w.angle,
-        segments: [],
-        gfx: this.add.graphics(),
-        label: this.add
-          .text(0, 0, w.nickname, {
-            fontFamily: "system-ui, sans-serif",
-            fontSize: "14px",
-            color: "#ffffff",
-          })
-          .setOrigin(0.5, 1.6)
-          .setAlpha(0.85),
+        buffer: new SnapshotBuffer(),
+        renderer: new WormRenderer(this, w.nickname, false),
       };
-      this.worms.set(key, worm);
+      this.remotes.set(key, entry);
       $(w).onChange(() => {
-        worm.nickname = w.nickname;
-        worm.tx = w.x;
-        worm.ty = w.y;
-        worm.tangle = w.angle;
-        worm.mass = w.mass;
-        worm.alive = w.alive;
-        worm.boosting = w.boosting;
+        const snap = {
+          x: w.x, y: w.y, angle: w.angle, mass: w.mass,
+          boosting: w.boosting, alive: w.alive, nickname: w.nickname,
+        };
+        maybeDelay(() => {
+          entry.nickname = snap.nickname;
+          entry.buffer.push({ t: performance.now(), ...snap });
+        });
       });
     });
 
     worms.onRemove((_w, key: string) => {
-      const worm = this.worms.get(key);
-      if (worm) {
-        worm.gfx.destroy();
-        worm.label.destroy();
-        this.worms.delete(key);
+      const entry = this.remotes.get(key);
+      if (entry) {
+        entry.renderer.destroy();
+        this.remotes.delete(key);
       }
+    });
+
+    food.onAdd((f, key: string) => {
+      this.food.set(Number(key), {
+        kind: f.kind as FoodKind, x: f.x, y: f.y, value: f.value, scale: 1,
+      });
+    });
+    food.onRemove((_f, key: string) => {
+      this.food.delete(Number(key));
+    });
+  }
+
+  private wireMessages(): void {
+    const ownId = this.conn.room.sessionId;
+    this.conn.onLeaderboard((msg) => {
+      this.hud.setLeaderboard(msg, ownId);
+      const mine = msg.top.find((e) => e.id === ownId);
+      if (mine) this.localScore = mine.score;
+    });
+    this.conn.onDeath((msg) => {
+      this.localAlive = false;
+      this.localScore = msg.score;
+      this.hud.showDeath(msg);
     });
   }
 
@@ -121,109 +199,104 @@ class ArenaScene extends Phaser.Scene {
     }
   }
 
+  // ── frame loop ────────────────────────────────────────────────────────────
+
   override update(_time: number, deltaMs: number): void {
     const dt = Math.min(deltaMs / 1000, 0.1);
-    this.sendInputs(dt);
-    this.renderWorms(dt);
+
+    if (this.localAlive) {
+      const sent = this.predictor.advance(dt, () => this.sampleInput());
+      for (const input of sent) maybeDelay(() => this.conn.sendInput(input));
+    }
+
+    this.renderLocal();
+    this.renderRemotes();
+    this.renderFood();
     this.updateCamera(dt);
+    this.hud.setScore(this.localScore, this.localMassView);
+
+    // E2E/diagnostics hook (read-only; also feeds the dev perf panel in M3)
+    (window as unknown as { __nibblio?: unknown }).__nibblio = {
+      alive: this.localAlive,
+      mass: this.localMassView,
+      score: this.localScore,
+      remoteCount: this.remotes.size,
+      foodCount: this.food.size,
+      predictionError: this.predictor.lastErrorMagnitude,
+      pendingInputs: this.predictor.pendingCount,
+      x: this.predictor.worm.x,
+      y: this.predictor.worm.y,
+    };
   }
 
-  private sendInputs(dt: number): void {
-    this.inputTimer += dt;
-    const interval = 1 / NET.inputRate;
-    if (this.inputTimer < interval) return;
-    this.inputTimer %= interval;
-
-    const me = this.worms.get(this.conn.room.sessionId);
+  private sampleInput(): WormInput {
+    const pose = this.predictor.renderPose();
     const pointer = this.input.activePointer;
-    let angle = me?.angle ?? 0;
-    if (me && pointer) {
+    let angle = this.predictor.worm.targetAngle;
+    if (pointer) {
       const wp = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
-      const dx = wp.x - me.x;
-      const dy = wp.y - me.y;
+      const dx = wp.x - pose.x;
+      const dy = wp.y - pose.y;
       if (dx * dx + dy * dy > 25) angle = Math.atan2(dy, dx);
     }
     this.inputSeq++;
-    this.conn.sendInput({ seq: this.inputSeq, angle: wrapAngle(angle), boost: this.boostHeld });
+    return { seq: this.inputSeq, angle: wrapAngle(angle), boost: this.boostHeld };
   }
 
-  private renderWorms(dt: number): void {
-    const alpha = 1 - Math.exp(-dt * 12);
+  private renderLocal(): void {
+    const pose = this.predictor.renderPose();
+    this.localRenderer.draw(
+      pose.x, pose.y, pose.angle,
+      this.predictor.worm.mass,
+      this.predictor.worm.boosting,
+      this.localAlive,
+    );
+  }
 
-    for (const w of this.worms.values()) {
-      w.x += (w.tx - w.x) * alpha;
-      w.y += (w.ty - w.y) * alpha;
-      w.angle = lerpAngle(w.angle, w.tangle, alpha);
+  private renderRemotes(): void {
+    const now = performance.now();
+    for (const entry of this.remotes.values()) {
+      const s = entry.buffer.sample(now);
+      if (!s) continue;
+      entry.renderer.setNickname(entry.nickname);
+      entry.renderer.draw(s.x, s.y, s.angle, s.mass, s.boosting, s.alive);
+    }
+  }
 
-      w.gfx.clear();
-      w.label.setPosition(w.x, w.y);
-      if (!w.alive) {
-        w.label.setVisible(false);
+  private renderFood(): void {
+    // redraw visible food each frame into one Graphics (pooled sprites in M2)
+    const cam = this.cameras.main;
+    const view = cam.worldView;
+    const pad = 40;
+    this.foodGfx.clear();
+    for (const f of this.food.values()) {
+      if (
+        f.x < view.x - pad || f.x > view.right + pad ||
+        f.y < view.y - pad || f.y > view.bottom + pad
+      ) {
         continue;
       }
-      w.label.setVisible(true);
-      w.label.setText(w.nickname);
-
-      const radius = radiusForMass(w.mass);
-      const length = lengthForMass(w.mass);
-      const spacing = WORM.segmentSpacing;
-      const count = Math.max(3, Math.floor(length / spacing));
-
-      // follow-the-leader body reconstruction (render-side only)
-      if (w.segments.length !== count) {
-        const last = w.segments[w.segments.length - 1] ?? { x: w.x, y: w.y };
-        while (w.segments.length < count) w.segments.push({ x: last.x, y: last.y });
-        w.segments.length = count;
-      }
-      let px = w.x;
-      let py = w.y;
-      for (const seg of w.segments) {
-        const dx = px - seg.x;
-        const dy = py - seg.y;
-        const d = Math.hypot(dx, dy);
-        if (d > spacing) {
-          const t = (d - spacing) / d;
-          seg.x += dx * t;
-          seg.y += dy * t;
-        }
-        px = seg.x;
-        py = seg.y;
-      }
-
-      const bodyColor = w.boosting ? 0xffe08a : 0xffb545;
-      for (let i = w.segments.length - 1; i >= 0; i--) {
-        const seg = w.segments[i]!;
-        const r = radius * (1 - (i / w.segments.length) * 0.35);
-        w.gfx.fillStyle(bodyColor, 1);
-        w.gfx.fillCircle(seg.x, seg.y, r);
-      }
-      // head + placeholder eyes (replaced by real art in M2)
-      w.gfx.fillStyle(bodyColor, 1);
-      w.gfx.fillCircle(w.x, w.y, radius * 1.08);
-      const ex = Math.cos(w.angle + Math.PI / 2) * radius * 0.45;
-      const ey = Math.sin(w.angle + Math.PI / 2) * radius * 0.45;
-      const fx = Math.cos(w.angle) * radius * 0.35;
-      const fy = Math.sin(w.angle) * radius * 0.35;
-      w.gfx.fillStyle(0xffffff, 1);
-      w.gfx.fillCircle(w.x + fx + ex, w.y + fy + ey, radius * 0.28);
-      w.gfx.fillCircle(w.x + fx - ex, w.y + fy - ey, radius * 0.28);
-      w.gfx.fillStyle(0x1a1a2e, 1);
-      w.gfx.fillCircle(w.x + fx * 1.3 + ex, w.y + fy * 1.3 + ey, radius * 0.13);
-      w.gfx.fillCircle(w.x + fx * 1.3 - ex, w.y + fy * 1.3 - ey, radius * 0.13);
+      const r = FOOD[f.kind].radius;
+      const color = FOOD_COLORS[f.kind];
+      this.foodGfx.fillStyle(color, 0.35);
+      this.foodGfx.fillCircle(f.x, f.y, r * 1.7);
+      this.foodGfx.fillStyle(color, 1);
+      this.foodGfx.fillCircle(f.x, f.y, r);
     }
   }
 
   private updateCamera(dt: number): void {
-    const me = this.worms.get(this.conn.room.sessionId);
-    if (!me) return;
+    const pose = this.predictor.renderPose();
     const cam = this.cameras.main;
     const alpha = 1 - Math.pow(0.5, dt / CAMERA.smoothHalfLife);
-    cam.centerOnX(cam.midPoint.x + (me.x - cam.midPoint.x) * alpha);
-    cam.centerOnY(cam.midPoint.y + (me.y - cam.midPoint.y) * alpha);
-
+    cam.centerOn(
+      cam.midPoint.x + (pose.x - cam.midPoint.x) * alpha,
+      cam.midPoint.y + (pose.y - cam.midPoint.y) * alpha,
+    );
+    const mass = this.predictor.worm.mass;
     const targetZoom = Math.max(
       CAMERA.minZoom,
-      CAMERA.baseZoom * Math.pow(WORM.spawnMass / Math.max(me.mass, WORM.spawnMass), CAMERA.zoomExp),
+      CAMERA.baseZoom * Math.pow(WORM.spawnMass / Math.max(mass, WORM.spawnMass), CAMERA.zoomExp),
     );
     cam.setZoom(cam.zoom + (targetZoom - cam.zoom) * alpha * 0.5);
   }
@@ -231,7 +304,7 @@ class ArenaScene extends Phaser.Scene {
 
 let phaserGame: Phaser.Game | null = null;
 
-/** Connect first (so failures surface before any rendering), then boot Phaser. */
+/** Connect first (failures surface before rendering), then boot Phaser. */
 export async function startGame(opts: StartOptions): Promise<void> {
   if (phaserGame) {
     phaserGame.destroy(true);
@@ -247,11 +320,7 @@ export async function startGame(opts: StartOptions): Promise<void> {
       type: Phaser.AUTO,
       parent: "game",
       backgroundColor: GAME.backgroundColor,
-      scale: {
-        mode: Phaser.Scale.RESIZE,
-        width: "100%",
-        height: "100%",
-      },
+      scale: { mode: Phaser.Scale.RESIZE, width: "100%", height: "100%" },
       scene: [],
     });
     phaserGame.events.once(Phaser.Core.Events.READY, () => {

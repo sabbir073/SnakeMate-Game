@@ -9,33 +9,33 @@ check), never merely because code exists. See CLAUDE.md.
 - [x] Root workspace: package.json, pnpm-workspace.yaml, .gitignore, .env.example
 - [x] CLAUDE.md project rules
 - [x] docs/MASTER_SPEC.md preserved
-- [ ] docs/ skeleton (all §7 files) with initial content
-- [ ] packages/config — balance + game configuration (single source of tuning)
-- [ ] packages/shared — math, seeded RNG, utils (unit-tested)
-- [ ] packages/protocol — versioned message/snapshot types
-- [ ] packages/game-core — deterministic sim scaffold (fixed timestep, unit-tested)
-- [ ] packages/asset-types — manifest types
-- [ ] apps/server — Colyseus boot, /health /ready /version
-- [ ] apps/client — Vite + Phaser boot, home screen shell
-- [ ] apps/bot — headless client scaffold
-- [ ] tools/asset-pipeline — SVG→PNG→atlas build scaffold
-- [ ] scripts/quality-gate.sh green: install → typecheck → test → build
-- [ ] Initial commit + push to GitHub (from user's PC)
+- [x] docs/ skeleton (all §7 files) with initial content
+- [x] packages/config — balance + game configuration (single source of tuning)
+- [x] packages/shared — math, seeded RNG, utils (unit-tested)
+- [x] packages/protocol — versioned message/snapshot types
+- [x] packages/game-core — deterministic sim scaffold (fixed timestep, unit-tested)
+- [x] packages/asset-types — manifest types
+- [x] apps/server — Colyseus boot, /health /ready /version
+- [x] apps/client — Vite + Phaser boot, home screen shell
+- [x] apps/bot — headless client scaffold
+- [x] tools/asset-pipeline — SVG→PNG→atlas build scaffold
+- [x] scripts/quality-gate.sh green: install → typecheck → test → build
+- [x] Initial commit + push to GitHub (from user's PC)
 
 ## Milestone M1 — Multiplayer vertical slice (phases 3–10)
 
-- [ ] Client shell: home → PLAY → arena scene
-- [ ] Colyseus ArenaRoom, 60 Hz fixed sim loop
-- [ ] Deterministic movement (turn-rate bounded) in game-core
-- [ ] Path-based worm body (mass → length)
-- [ ] Client prediction + server reconciliation
-- [ ] Remote snapshot interpolation
-- [ ] Food: pooled spawn/pickup/growth
-- [ ] Boost (energy/mass drain, server-validated)
-- [ ] Collision (spatial hash + circle/capsule) → death → death loot
-- [ ] Leaderboard (top N + own rank)
-- [ ] Camera follow + size-based zoom
-- [ ] E2E: two Playwright clients play; latency 100–200 ms test
+- [x] Client shell: home → PLAY → arena scene
+- [x] Colyseus ArenaRoom, 60 Hz fixed sim loop
+- [x] Deterministic movement (turn-rate bounded) in game-core
+- [x] Path-based worm body (mass → length)
+- [x] Client prediction + server reconciliation
+- [x] Remote snapshot interpolation
+- [x] Food: pooled spawn/pickup/growth
+- [x] Boost (energy/mass drain, server-validated)
+- [x] Collision (spatial hash + circle/capsule) → death → death loot
+- [x] Leaderboard (top N + own rank)
+- [x] Camera follow + size-based zoom
+- [x] E2E: two Playwright clients play; latency 100–200 ms test
 - [ ] Synced to user's PC + pushed
 
 ## Milestone M2 — Product feel (phases 11–15)

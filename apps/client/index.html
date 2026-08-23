@@ -65,11 +65,76 @@
       #play:disabled { opacity: 0.6; cursor: default; }
       #status { color: #8f7cc9; font-size: 14px; min-height: 20px; }
       .version { position: absolute; bottom: 10px; right: 14px; color: #55428a; font-size: 11px; }
+
+      /* ── in-game HUD ── */
+      #hud { position: absolute; inset: 0; pointer-events: none; z-index: 5; display: none; }
+      #hud.visible { display: block; }
+      #score-panel {
+        position: absolute;
+        left: max(14px, env(safe-area-inset-left));
+        top: max(12px, env(safe-area-inset-top));
+        background: rgba(18, 8, 43, 0.72);
+        border: 1px solid #3a2477; border-radius: 12px;
+        padding: 8px 14px; color: #fff;
+        font-size: 15px; font-weight: 700;
+      }
+      #score-panel .sub { font-size: 12px; font-weight: 500; color: #b9a7e6; }
+      #leaderboard {
+        position: absolute;
+        right: max(14px, env(safe-area-inset-right));
+        top: max(12px, env(safe-area-inset-top));
+        min-width: 168px;
+        background: rgba(18, 8, 43, 0.72);
+        border: 1px solid #3a2477; border-radius: 12px;
+        padding: 8px 12px; color: #fff; font-size: 12.5px;
+      }
+      #leaderboard h3 {
+        font-size: 11px; letter-spacing: 0.12em; color: #b9a7e6;
+        margin-bottom: 5px; font-weight: 700;
+      }
+      #leaderboard ol { list-style: none; }
+      #leaderboard li { display: flex; justify-content: space-between; gap: 10px; line-height: 1.55; }
+      #leaderboard li.me { color: #ffd166; font-weight: 700; }
+      #leaderboard .own-rank { margin-top: 4px; padding-top: 4px; border-top: 1px solid #3a2477; color: #ffd166; }
+
+      /* ── death screen ── */
+      #death {
+        position: absolute; inset: 0; z-index: 9;
+        display: none; flex-direction: column; align-items: center; justify-content: center;
+        gap: 14px; background: rgba(10, 4, 26, 0.82);
+        color: #fff; text-align: center;
+      }
+      #death.visible { display: flex; }
+      #death h2 { font-size: clamp(28px, 6vw, 44px); color: #ff7b54; }
+      #death .stats { color: #b9a7e6; font-size: 16px; line-height: 1.7; }
+      #respawn {
+        padding: 13px 34px; font-size: 18px; font-weight: 800;
+        border-radius: 14px; border: 0; cursor: pointer; color: #2b1a00;
+        background: linear-gradient(180deg, #ffe08a 0%, #ffb545 100%);
+        box-shadow: 0 4px 0 #b57718;
+      }
+      #respawn:active { transform: translateY(3px); box-shadow: 0 1px 0 #b57718; }
     </style>
   </head>
   <body>
     <div id="app">
       <div id="game"></div>
+      <div id="hud">
+        <div id="score-panel">
+          <div id="score-value">0</div>
+          <div class="sub" id="score-sub">mass 10 · rank —</div>
+        </div>
+        <div id="leaderboard">
+          <h3>LEADERBOARD</h3>
+          <ol id="leaderboard-list"></ol>
+          <div class="own-rank" id="own-rank"></div>
+        </div>
+      </div>
+      <div id="death">
+        <h2 id="death-title">YOU GOT NIBBLED</h2>
+        <div class="stats" id="death-stats"></div>
+        <button id="respawn">PLAY AGAIN</button>
+      </div>
       <div id="home">
         <div class="logo-title" id="logo-title">NIBBLIO</div>
         <div class="tagline" id="tagline">Eat. Grow. Outslither everyone.</div>

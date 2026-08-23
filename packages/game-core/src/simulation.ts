@@ -1,0 +1,303 @@
+import {
+  BOOST, FOOD, FOOD_RULES, ROOM, SCORE, SIM, WORLD, WORM,
+} from "@nibblio/config";
+import type { FoodKind } from "@nibblio/config";
+import { dist2, pointSegmentDist2 } from "@nibblio/shared";
+import type { Rng } from "@nibblio/shared";
+import { applyInput, stepWormMovement } from "./movement.js";
+import { SpatialHash } from "./spatial-hash.js";
+import type {
+  FoodState, PathSample, StepEvents, WorldState, WormInput, WormState,
+} from "./types.js";
+import { bodyPointAt, refreshDerived } from "./worm.js";
+import { createWorld, emptyEvents } from "./world.js";
+
+const AMBIENT_KINDS: FoodKind[] = ["COMMON", "RARE", "EPIC", "BONUS"];
+const AMBIENT_WEIGHTS = AMBIENT_KINDS.map((k) => FOOD[k].spawnWeight);
+const MAX_FOOD_RADIUS = Math.max(...Object.values(FOOD).map((f) => f.radius));
+
+/** Full authoritative simulation (spec phases 6–10).
+ *  Owns the world plus its spatial indexes. All methods are deterministic
+ *  given the injected RNG. The client instantiates one of these too (without
+ *  food spawning) for prediction of the local worm. */
+export class Simulation {
+  readonly world: WorldState;
+  private readonly foodHash: SpatialHash;
+  private readonly rng: Rng;
+  /** Max food spawned per tick to avoid burst allocations. */
+  private readonly spawnPerTick = 20;
+  private readonly queryBuf: number[] = [];
+  private readonly scratch: PathSample = { x: 0, y: 0 };
+
+  constructor(rng: Rng, worldSize: number = WORLD.size) {
+    this.world = createWorld(worldSize);
+    this.foodHash = new SpatialHash(256);
+    this.rng = rng;
+  }
+
+  get targetAmbientFood(): number {
+    const area = this.world.worldSize * this.world.worldSize;
+    return Math.min(FOOD_RULES.maxAmbient, Math.round((area / 1e6) * FOOD_RULES.densityPer1e6));
+  }
+
+  /** Advance one fixed tick. */
+  step(inputs: ReadonlyMap<string, WormInput>, events: StepEvents = emptyEvents()): StepEvents {
+    const w = this.world;
+    w.tick++;
+
+    // 1. apply inputs
+    for (const [wormId, input] of inputs) {
+      const worm = w.worms.get(wormId);
+      if (worm?.alive) applyInput(worm, input);
+    }
+
+    // 2. integrate movement (+ boost drops), deterministic iteration order
+    for (const worm of this.wormsSorted()) {
+      if (!worm.alive) continue;
+      stepWormMovement(worm, w.tick);
+      this.handleBoostDrops(worm, events);
+    }
+
+    // 3. world-boundary deaths
+    for (const worm of this.wormsSorted()) {
+      if (!worm.alive) continue;
+      const r = worm.radius;
+      if (
+        worm.x - r < 0 || worm.y - r < 0 ||
+        worm.x + r > w.worldSize || worm.y + r > w.worldSize
+      ) {
+        this.kill(worm, null, events);
+      }
+    }
+
+    // 4. worm-vs-worm collisions
+    this.resolveCollisions(events);
+
+    // 5. food pickup
+    this.resolveFoodPickup(events);
+
+    // 6. ambient food replenish
+    this.replenishFood(events);
+
+    return events;
+  }
+
+  // ── worms ─────────────────────────────────────────────────────────────────
+
+  private wormsSorted(): WormState[] {
+    // Map preserves insertion order which can differ between server and a
+    // late-joining observer; sort by id for cross-instance determinism.
+    return [...this.world.worms.values()].sort((a, b) => (a.id < b.id ? -1 : 1));
+  }
+
+  addWorm(worm: WormState): void {
+    this.world.worms.set(worm.id, worm);
+  }
+
+  removeWorm(id: string): void {
+    this.world.worms.delete(id);
+  }
+
+  /** Pick a spawn location clear of other worms (spec §111). */
+  findSpawnSpot(): { x: number; y: number } {
+    const margin = WORM.baseLength + 200;
+    const size = this.world.worldSize;
+    let best = { x: size / 2, y: size / 2 };
+    let bestClearance = -1;
+    for (let i = 0; i < ROOM.spawnAttempts; i++) {
+      const x = this.rng.range(margin, size - margin);
+      const y = this.rng.range(margin, size - margin);
+      let clearance = Infinity;
+      for (const w of this.world.worms.values()) {
+        if (!w.alive) continue;
+        const d = Math.sqrt(dist2(w.x, w.y, x, y));
+        if (d < clearance) clearance = d;
+      }
+      if (clearance >= ROOM.spawnClearRadius) return { x, y };
+      if (clearance > bestClearance) {
+        bestClearance = clearance;
+        best = { x, y };
+      }
+    }
+    return best;
+  }
+
+  randomAngle(): number {
+    return this.rng.range(-Math.PI, Math.PI);
+  }
+
+  private kill(worm: WormState, killerId: string | null, events: StepEvents): void {
+    if (!worm.alive) return;
+    worm.alive = false;
+    worm.boosting = false;
+    events.deaths.push({ wormId: worm.id, killerId });
+
+    if (killerId) {
+      const killer = this.world.worms.get(killerId);
+      if (killer?.alive) {
+        killer.kills++;
+        killer.score += SCORE.perKill;
+      }
+    }
+    this.dropDeathLoot(worm, events);
+  }
+
+  /** Scatter a fraction of the dead worm's mass along its body (spec §112). */
+  private dropDeathLoot(worm: WormState, events: StepEvents): void {
+    const totalValue = worm.mass * FOOD_RULES.deathDropFraction;
+    const pellet = FOOD.DEATH_LOOT;
+    const count = Math.max(1, Math.floor(totalValue / pellet.value));
+    const bodyLen = worm.length;
+    for (let i = 0; i < count; i++) {
+      const along = (i / count) * bodyLen;
+      bodyPointAt(worm, along, this.scratch);
+      const jx = this.rng.range(-FOOD_RULES.deathScatter, FOOD_RULES.deathScatter);
+      const jy = this.rng.range(-FOOD_RULES.deathScatter, FOOD_RULES.deathScatter);
+      this.spawnFood("DEATH_LOOT", this.scratch.x + jx, this.scratch.y + jy, events);
+    }
+  }
+
+  private handleBoostDrops(worm: WormState, events: StepEvents): void {
+    if (!worm.boosting) return;
+    while (worm.boostDropAccum >= BOOST.dropInterval) {
+      worm.boostDropAccum -= BOOST.dropInterval;
+      bodyPointAt(worm, worm.length, this.scratch);
+      this.spawnFoodWithValue(
+        "COMMON", this.scratch.x, this.scratch.y, BOOST.dropFoodValue, events,
+      );
+    }
+  }
+
+  // ── collision (spec §20, phase 8) ────────────────────────────────────────
+
+  private resolveCollisions(events: StepEvents): void {
+    const worms = this.wormsSorted().filter((w) => w.alive);
+    const dead = new Map<string, string | null>(); // victim → killer
+
+    for (const a of worms) {
+      for (const b of worms) {
+        if (a === b) continue;
+        // bounding prefilter: b's whole body lies within b.length of b's head
+        const reach = a.radius + b.length + b.radius;
+        if (dist2(a.x, a.y, b.x, b.y) > reach * reach) continue;
+
+        if (this.headHitsBody(a, b)) {
+          dead.set(a.id, b.id);
+        }
+      }
+    }
+
+    for (const [victimId, killerId] of dead) {
+      const victim = this.world.worms.get(victimId);
+      if (victim) {
+        // mutual head-on: both are in `dead`; killer credit still applies
+        this.kill(victim, killerId, events);
+      }
+    }
+  }
+
+  /** Narrow phase: does worm A's head circle hit worm B's head or body path? */
+  private headHitsBody(a: WormState, b: WormState): boolean {
+    const rr = a.radius + b.radius;
+    // head-vs-head
+    if (dist2(a.x, a.y, b.x, b.y) <= rr * rr) return true;
+
+    // head vs body capsules along b's path samples
+    const path = b.path;
+    if (path.length === 0) return false;
+    const maxSamples = Math.min(
+      path.length,
+      Math.ceil(b.length / WORM.pathSpacing) + 1,
+    );
+    let px = b.x;
+    let py = b.y;
+    const rr2 = rr * rr;
+    for (let i = 0; i < maxSamples; i++) {
+      const s = path[i]!;
+      if (pointSegmentDist2(a.x, a.y, px, py, s.x, s.y) <= rr2) return true;
+      px = s.x;
+      py = s.y;
+    }
+    return false;
+  }
+
+  // ── food (spec §18, phase 7) ─────────────────────────────────────────────
+
+  private spawnFood(kind: FoodKind, x: number, y: number, events: StepEvents): FoodState {
+    return this.spawnFoodWithValue(kind, x, y, FOOD[kind].value, events);
+  }
+
+  private spawnFoodWithValue(
+    kind: FoodKind, x: number, y: number, value: number, events: StepEvents,
+  ): FoodState {
+    const size = this.world.worldSize;
+    const cl = (v: number): number => (v < 0 ? 0 : v > size ? size : v);
+    const food: FoodState = {
+      id: this.world.nextEntityId++,
+      kind,
+      x: cl(x),
+      y: cl(y),
+      value,
+      radius: FOOD[kind].radius,
+    };
+    this.world.food.set(food.id, food);
+    this.foodHash.insert(food.id, food.x, food.y);
+    events.foodSpawned.push(food);
+    return food;
+  }
+
+  private removeFood(id: number, events: StepEvents): void {
+    if (this.world.food.delete(id)) {
+      this.foodHash.remove(id);
+      events.foodRemoved.push(id);
+    }
+  }
+
+  private resolveFoodPickup(events: StepEvents): void {
+    for (const worm of this.wormsSorted()) {
+      if (!worm.alive) continue;
+      const magnet = (worm.effects.MAGNET ?? 0) > this.world.tick;
+      const reach = magnet
+        ? FOOD_RULES.magnetRadius
+        : worm.radius + MAX_FOOD_RADIUS + FOOD_RULES.pickupSlack;
+      this.foodHash.queryRadius(worm.x, worm.y, reach, this.queryBuf);
+      if (this.queryBuf.length === 0) continue;
+      // deterministic ordering
+      this.queryBuf.sort((x, y) => x - y);
+      for (const foodId of this.queryBuf) {
+        const food = this.world.food.get(foodId);
+        if (!food) continue;
+        const pickupR = worm.radius + food.radius + FOOD_RULES.pickupSlack;
+        const within = magnet
+          ? dist2(worm.x, worm.y, food.x, food.y) <= FOOD_RULES.magnetRadius ** 2
+          : dist2(worm.x, worm.y, food.x, food.y) <= pickupR * pickupR;
+        if (!within) continue;
+        this.eat(worm, food, events);
+      }
+    }
+  }
+
+  private eat(worm: WormState, food: FoodState, events: StepEvents): void {
+    const doubleGrowth = (worm.effects.DOUBLE_GROWTH ?? 0) > this.world.tick;
+    const scoreMult = (worm.effects.SCORE_MULTIPLIER ?? 0) > this.world.tick ? 2 : 1;
+    worm.mass += food.value * (doubleGrowth ? 2 : 1);
+    worm.score += food.value * SCORE.perFoodValue * scoreMult;
+    refreshDerived(worm);
+    this.removeFood(food.id, events);
+    events.foodEaten.push({ wormId: worm.id, foodId: food.id, value: food.value });
+  }
+
+  private replenishFood(events: StepEvents): void {
+    const target = this.targetAmbientFood;
+    let deficit = target - this.world.food.size;
+    let spawned = 0;
+    while (deficit > 0 && spawned < this.spawnPerTick) {
+      const kind = AMBIENT_KINDS[this.rng.weighted(AMBIENT_WEIGHTS)] ?? "COMMON";
+      const x = this.rng.range(0, this.world.worldSize);
+      const y = this.rng.range(0, this.world.worldSize);
+      this.spawnFood(kind, x, y, events);
+      deficit--;
+      spawned++;
+    }
+  }
+}

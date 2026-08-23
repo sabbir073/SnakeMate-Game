@@ -1,10 +1,8 @@
 import { Room } from "@colyseus/core";
 import type { Client } from "@colyseus/core";
-import { NET, ROOM, SIM, WORLD, WORM } from "@nibblio/config";
-import {
-  createWorld, createWorm, emptyEvents, stepWorld,
-} from "@nibblio/game-core";
-import type { StepEvents, WorldState, WormInput } from "@nibblio/game-core";
+import { NET, ROOM, SIM, WORLD } from "@nibblio/config";
+import { Simulation, createWorm, emptyEvents } from "@nibblio/game-core";
+import type { StepEvents, WormInput } from "@nibblio/game-core";
 import {
   ARENA_ROOM, MSG, PROTOCOL_VERSION, sanitizeNickname,
 } from "@nibblio/protocol";
@@ -14,7 +12,7 @@ import type {
 import { createRng, hashString, wrapAngle } from "@nibblio/shared";
 import { logger } from "../logger.js";
 import { SERVER_VERSION } from "../version.js";
-import { ArenaState, WormSchema } from "./state.js";
+import { ArenaState, FoodSchema, WormSchema } from "./state.js";
 
 export { ARENA_ROOM };
 
@@ -24,8 +22,7 @@ export { ARENA_ROOM };
 export class ArenaRoom extends Room<ArenaState> {
   override maxClients = ROOM.maxPlayers;
 
-  private world: WorldState = createWorld(WORLD.size);
-  private rng = createRng(0);
+  private sim!: Simulation;
   private pendingInputs = new Map<string, WormInput>();
   private events: StepEvents = emptyEvents();
   private lastLeaderboardAt = 0;
@@ -37,8 +34,8 @@ export class ArenaRoom extends Room<ArenaState> {
 
   override onCreate(): void {
     this.state = new ArenaState();
-    this.state.worldSize = this.world.worldSize;
-    this.rng = createRng(hashString(this.roomId));
+    this.sim = new Simulation(createRng(hashString(this.roomId)), WORLD.size);
+    this.state.worldSize = this.sim.world.worldSize;
 
     this.setPatchRate(1000 / NET.snapshotRate);
     this.setSimulationInterval(() => this.simTick(), 1000 / SIM.tickRate);
@@ -67,7 +64,7 @@ export class ArenaRoom extends Room<ArenaState> {
       playerId: client.sessionId,
       protocolVersion: PROTOCOL_VERSION,
       serverVersion: SERVER_VERSION,
-      worldSize: this.world.worldSize,
+      worldSize: this.sim.world.worldSize,
       tickRate: SIM.tickRate,
       snapshotRate: NET.snapshotRate,
     };
@@ -104,7 +101,7 @@ export class ArenaRoom extends Room<ArenaState> {
     const t0 = performance.now();
 
     this.events = emptyEvents();
-    stepWorld(this.world, this.pendingInputs, this.events, this.rng);
+    this.sim.step(this.pendingInputs, this.events);
     this.pendingInputs.clear();
 
     this.syncSchema();
@@ -135,13 +132,13 @@ export class ArenaRoom extends Room<ArenaState> {
   // ── worm lifecycle ────────────────────────────────────────────────────────
 
   private spawnWorm(sessionId: string, nickname?: string, skinId?: string): void {
-    const existing = this.world.worms.get(sessionId);
+    const existing = this.sim.world.worms.get(sessionId);
     if (existing?.alive) return;
     const name = nickname ?? existing?.nickname ?? "Worm";
     const skin = skinId ?? existing?.skinId ?? "s0";
     this.removeWorm(sessionId);
 
-    const spot = this.findSpawnSpot();
+    const spot = this.sim.findSpawnSpot();
     const worm = createWorm({
       id: sessionId,
       ownerId: sessionId,
@@ -149,10 +146,10 @@ export class ArenaRoom extends Room<ArenaState> {
       skinId: skin,
       x: spot.x,
       y: spot.y,
-      angle: this.rng.range(-Math.PI, Math.PI),
-      spawnTick: this.world.tick,
+      angle: this.sim.randomAngle(),
+      spawnTick: this.sim.world.tick,
     });
-    this.world.worms.set(sessionId, worm);
+    this.sim.addWorm(worm);
 
     const ws = new WormSchema();
     ws.id = sessionId;
@@ -162,38 +159,30 @@ export class ArenaRoom extends Room<ArenaState> {
   }
 
   private removeWorm(sessionId: string): void {
-    this.world.worms.delete(sessionId);
+    this.sim.removeWorm(sessionId);
     this.state.worms.delete(sessionId);
-  }
-
-  /** Spawn away from other worms (spec §111). */
-  private findSpawnSpot(): { x: number; y: number } {
-    const margin = WORM.baseLength + 200;
-    let best = { x: this.world.worldSize / 2, y: this.world.worldSize / 2 };
-    let bestClearance = -1;
-    for (let i = 0; i < ROOM.spawnAttempts; i++) {
-      const x = this.rng.range(margin, this.world.worldSize - margin);
-      const y = this.rng.range(margin, this.world.worldSize - margin);
-      let clearance = Infinity;
-      for (const w of this.world.worms.values()) {
-        if (!w.alive) continue;
-        const d = Math.hypot(w.x - x, w.y - y);
-        if (d < clearance) clearance = d;
-      }
-      if (clearance >= ROOM.spawnClearRadius) return { x, y };
-      if (clearance > bestClearance) {
-        bestClearance = clearance;
-        best = { x, y };
-      }
-    }
-    return best;
   }
 
   // ── sync & events ─────────────────────────────────────────────────────────
 
   private syncSchema(): void {
-    this.state.tick = this.world.tick;
-    for (const [id, w] of this.world.worms) {
+    this.state.tick = this.sim.world.tick;
+
+    // food deltas (events → schema)
+    for (const f of this.events.foodSpawned) {
+      const fs = new FoodSchema();
+      fs.id = f.id;
+      fs.kind = f.kind;
+      fs.x = f.x;
+      fs.y = f.y;
+      fs.value = f.value;
+      this.state.food.set(String(f.id), fs);
+    }
+    for (const id of this.events.foodRemoved) {
+      this.state.food.delete(String(id));
+    }
+
+    for (const [id, w] of this.sim.world.worms) {
       const ws = this.state.worms.get(id);
       if (!ws) continue;
       ws.x = w.x;
@@ -209,15 +198,15 @@ export class ArenaRoom extends Room<ArenaState> {
 
   private dispatchEvents(): void {
     for (const death of this.events.deaths) {
-      const w = this.world.worms.get(death.wormId);
+      const w = this.sim.world.worms.get(death.wormId);
       if (!w) continue;
-      const killer = death.killerId ? this.world.worms.get(death.killerId) : null;
+      const killer = death.killerId ? this.sim.world.worms.get(death.killerId) : null;
       const client = this.clients.find((c) => c.sessionId === death.wormId);
       client?.send(MSG.death, {
         killedBy: killer?.nickname ?? null,
         score: w.score,
         mass: w.mass,
-        survivedSec: (this.world.tick - w.spawnTick) / SIM.tickRate,
+        survivedSec: (this.sim.world.tick - w.spawnTick) / SIM.tickRate,
         rank: this.rankOf(death.wormId),
       });
       logger.info(
@@ -228,16 +217,16 @@ export class ArenaRoom extends Room<ArenaState> {
   }
 
   private rankOf(wormId: string): number {
-    const sorted = [...this.world.worms.values()].sort((a, b) => b.score - a.score);
+    const sorted = [...this.sim.world.worms.values()].sort((a, b) => b.score - a.score);
     return sorted.findIndex((w) => w.id === wormId) + 1;
   }
 
   private maybeBroadcastLeaderboard(): void {
-    const now = this.world.tick / SIM.tickRate;
+    const now = this.sim.world.tick / SIM.tickRate;
     if (now - this.lastLeaderboardAt < ROOM.leaderboardInterval) return;
     this.lastLeaderboardAt = now;
 
-    const sorted = [...this.world.worms.values()]
+    const sorted = [...this.sim.world.worms.values()]
       .filter((w) => w.alive)
       .sort((a, b) => b.score - a.score);
     const top = sorted.slice(0, ROOM.leaderboardSize).map((w) => ({

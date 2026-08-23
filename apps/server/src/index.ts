@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { Server, matchMaker } from "@colyseus/core";
+import { Encoder } from "@colyseus/schema";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { ARENA_ROOM } from "@nibblio/protocol";
 import { logger } from "./logger.js";
@@ -8,6 +9,11 @@ import { ArenaRoom } from "./rooms/arena-room.js";
 import { SERVER_VERSION } from "./version.js";
 
 const PORT = Number(process.env.PORT ?? 2567);
+
+// The initial full-state encode (thousands of ambient food items) exceeds the
+// 128KB default. AOI filtering (M3) shrinks this dramatically; until then the
+// buffer accommodates a full world snapshot.
+Encoder.BUFFER_SIZE = 512 * 1024;
 
 let ready = true;
 

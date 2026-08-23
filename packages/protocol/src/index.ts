@@ -42,6 +42,9 @@ export interface JoinOptions {
   skinId: string;
   /** Reconnection token if resuming a session. */
   reconnectToken?: string;
+  /** Matchmaking channel — rooms only match equal channels (default "main").
+   *  Used by tests/dev for isolation; harmless in production. */
+  channel?: string;
 }
 
 // ── server → client ──────────────────────────────────────────────────────────

@@ -24,11 +24,18 @@ export interface Connection {
   onDeath(cb: (msg: DeathMessage) => void): void;
   requestRespawn(): void;
   leave(): Promise<void>;
+  /** Resume the same session after an unexpected drop (spec §74).
+   *  On success `room` points at the resumed room; re-register listeners. */
+  reconnect(): Promise<void>;
 }
 
 export async function connect(nickname: string, skinId = "s0"): Promise<Connection> {
   const client = new Client(serverEndpoint());
-  const options: JoinOptions = { protocolVersion: PROTOCOL_VERSION, nickname, skinId };
+  let channel = "main";
+  try {
+    channel = new URLSearchParams(location.search).get("room") ?? "main";
+  } catch { /* non-browser context */ }
+  const options: JoinOptions = { protocolVersion: PROTOCOL_VERSION, nickname, skinId, channel };
   const room = await client.joinOrCreate(ARENA_ROOM, options);
 
   const welcome = await new Promise<WelcomeMessage>((resolve, reject) => {
@@ -47,15 +54,20 @@ export async function connect(nickname: string, skinId = "s0"): Promise<Connecti
     });
   });
 
-  return {
+  const conn: Connection = {
     room,
     welcome,
-    sendInput: (input) => room.send(MSG.input, input),
-    onLeaderboard: (cb) => room.onMessage(MSG.leaderboard, cb),
-    onDeath: (cb) => room.onMessage(MSG.death, cb),
-    requestRespawn: () => room.send(MSG.respawn),
+    sendInput: (input) => conn.room.send(MSG.input, input),
+    onLeaderboard: (cb) => conn.room.onMessage(MSG.leaderboard, cb),
+    onDeath: (cb) => conn.room.onMessage(MSG.death, cb),
+    requestRespawn: () => conn.room.send(MSG.respawn),
     leave: async () => {
-      await room.leave(true);
+      await conn.room.leave(true);
+    },
+    reconnect: async () => {
+      const token = conn.room.reconnectionToken;
+      conn.room = await client.reconnect(token);
     },
   };
+  return conn;
 }

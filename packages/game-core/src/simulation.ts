@@ -5,6 +5,7 @@ import type { FoodKind } from "@nibblio/config";
 import { dist2, pointSegmentDist2 } from "@nibblio/shared";
 import type { Rng } from "@nibblio/shared";
 import { applyInput, stepWormMovement } from "./movement.js";
+import { pruneEffects, replenishPowerups, resolvePowerupPickup } from "./powerups.js";
 import { SpatialHash } from "./spatial-hash.js";
 import type {
   FoodState, PathSample, StepEvents, WorldState, WormInput, WormState,
@@ -73,10 +74,21 @@ export class Simulation {
     // 4. worm-vs-worm collisions
     this.resolveCollisions(events);
 
-    // 5. food pickup
+    // 5. magnet pull + food pickup
+    this.applyMagnetPull();
     this.resolveFoodPickup(events);
 
-    // 6. ambient food replenish
+    // 6. powerups: pickup + world replenish (spec §19)
+    let alivePlayers = 0;
+    for (const worm of this.wormsSorted()) {
+      if (!worm.alive) continue;
+      alivePlayers++;
+      resolvePowerupPickup(w, worm, events);
+      if (w.tick % 30 === 0) pruneEffects(w, worm);
+    }
+    replenishPowerups(w, this.rng, alivePlayers, events);
+
+    // 7. ambient food replenish
     this.replenishFood(events);
 
     return events;
@@ -124,6 +136,13 @@ export class Simulation {
 
   randomAngle(): number {
     return this.rng.range(-Math.PI, Math.PI);
+  }
+
+  /** External kill (reconnect-grace expiry, admin) — drops loot like any death.
+   *  Call between ticks with the events object that will be synced next. */
+  forceKill(id: string, events: StepEvents): void {
+    const worm = this.world.worms.get(id);
+    if (worm?.alive) this.kill(worm, null, events);
   }
 
   private kill(worm: WormState, killerId: string | null, events: StepEvents): void {
@@ -189,10 +208,14 @@ export class Simulation {
 
     for (const [victimId, killerId] of dead) {
       const victim = this.world.worms.get(victimId);
-      if (victim) {
-        // mutual head-on: both are in `dead`; killer credit still applies
-        this.kill(victim, killerId, events);
+      if (!victim) continue;
+      // SHIELD blocks one collision death and is consumed (never blocks walls)
+      if ((victim.effects.SHIELD ?? 0) > this.world.tick) {
+        delete victim.effects.SHIELD;
+        continue;
       }
+      // mutual head-on: both are in `dead`; killer credit still applies
+      this.kill(victim, killerId, events);
     }
   }
 
@@ -253,13 +276,32 @@ export class Simulation {
     }
   }
 
+  /** MAGNET effect: food inside the pull radius drifts toward the head. */
+  private applyMagnetPull(): void {
+    const pullSpeed = 700; // wu/s — fast enough to feel magnetic, still visible
+    for (const worm of this.wormsSorted()) {
+      if (!worm.alive) continue;
+      if ((worm.effects.MAGNET ?? 0) <= this.world.tick) continue;
+      this.foodHash.queryRadius(worm.x, worm.y, FOOD_RULES.magnetRadius, this.queryBuf);
+      this.queryBuf.sort((x, y) => x - y);
+      for (const foodId of this.queryBuf) {
+        const food = this.world.food.get(foodId);
+        if (!food) continue;
+        const d2 = dist2(worm.x, worm.y, food.x, food.y);
+        if (d2 > FOOD_RULES.magnetRadius ** 2 || d2 < 1) continue;
+        const d = Math.sqrt(d2);
+        const stepLen = Math.min(pullSpeed * SIM.dt, d);
+        food.x += ((worm.x - food.x) / d) * stepLen;
+        food.y += ((worm.y - food.y) / d) * stepLen;
+        this.foodHash.update(food.id, food.x, food.y);
+      }
+    }
+  }
+
   private resolveFoodPickup(events: StepEvents): void {
     for (const worm of this.wormsSorted()) {
       if (!worm.alive) continue;
-      const magnet = (worm.effects.MAGNET ?? 0) > this.world.tick;
-      const reach = magnet
-        ? FOOD_RULES.magnetRadius
-        : worm.radius + MAX_FOOD_RADIUS + FOOD_RULES.pickupSlack;
+      const reach = worm.radius + MAX_FOOD_RADIUS + FOOD_RULES.pickupSlack;
       this.foodHash.queryRadius(worm.x, worm.y, reach, this.queryBuf);
       if (this.queryBuf.length === 0) continue;
       // deterministic ordering
@@ -268,10 +310,7 @@ export class Simulation {
         const food = this.world.food.get(foodId);
         if (!food) continue;
         const pickupR = worm.radius + food.radius + FOOD_RULES.pickupSlack;
-        const within = magnet
-          ? dist2(worm.x, worm.y, food.x, food.y) <= FOOD_RULES.magnetRadius ** 2
-          : dist2(worm.x, worm.y, food.x, food.y) <= pickupR * pickupR;
-        if (!within) continue;
+        if (dist2(worm.x, worm.y, food.x, food.y) > pickupR * pickupR) continue;
         this.eat(worm, food, events);
       }
     }

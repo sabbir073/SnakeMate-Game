@@ -40,12 +40,12 @@ check), never merely because code exists. See CLAUDE.md.
 
 ## Milestone M2 — Product feel (phases 11–15)
 
-- [ ] Powerup effect system (SPEED, MAGNET, DOUBLE_GROWTH, SHIELD, …)
-- [ ] Full original art integrated (no placeholders) + ART_STYLE.md
-- [ ] UI design system, HUD, death screen, settings, loading screen
-- [ ] Mobile: virtual joystick, boost button, safe areas, orientation
-- [ ] Audio manager + original SFX/music + AUDIO_STYLE.md
-- [ ] Reconnect flow (token, grace window, restore) + E2E
+- [x] Powerup effect system (SPEED, MAGNET, DOUBLE_GROWTH, SHIELD, …)
+- [x] Full original art integrated (no placeholders) + ART_STYLE.md
+- [x] UI design system, HUD, death screen, settings, loading screen
+- [x] Mobile: virtual joystick, boost button, safe areas, orientation
+- [x] Audio manager + original SFX/music + AUDIO_STYLE.md
+- [x] Reconnect flow (token, grace window, restore) + E2E
 
 ## Milestone M3 — Hardening & scale (phases 16–23)
 

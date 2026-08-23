@@ -1,95 +1,191 @@
-/** Asset pipeline (spec §38, §41, §83, §97).
+/** Nibblio asset pipeline (spec §38, §41, §83, §97).
  *
- *  M0 scaffold: walks assets/processed + assets/atlases + assets/audio,
- *  validates formats/paths, and writes the runtime manifest that the client
- *  loader consumes. The SVG→PNG rendering and atlas packing stages are added
- *  with the art pass (M2) — this file is their integration point.
+ *  generate SVG masters → render PNGs at runtime sizes → pack game atlas →
+ *  standalone images (logo, icon, favicon, background, social) → copy fonts
+ *  and audio → write assets-manifest.json → validate.
+ *
+ *  Deterministic: rerunning on the same inputs yields identical output
+ *  (timestamps in the manifest aside).
  */
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import type { AssetEntry, AssetManifest, AssetType, PreloadGroup } from "@nibblio/asset-types";
+import sharp from "sharp";
+import type { AssetEntry, AssetManifest } from "@nibblio/asset-types";
+import { generateAllArt } from "./generate-art.js";
+import { generateAllAudio } from "./generate-audio.js";
+import { packAtlas, writeFileEnsuring } from "./atlas.js";
+import type { AtlasFrameIn } from "./atlas.js";
+import { paths } from "./paths.js";
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
-const assetsDir = path.join(root, "assets");
-const outManifest = path.join(root, "apps/client/public/assets-manifest.json");
-
-const TYPE_BY_EXT: Record<string, AssetType> = {
-  ".png": "image", ".webp": "image", ".avif": "image", ".svg": "image",
-  ".json": "json",
-  ".mp3": "audio", ".ogg": "audio", ".wav": "audio", ".m4a": "audio",
-  ".woff2": "font", ".woff": "font", ".ttf": "font",
+const ATLAS_SIZES: Record<string, number> = {
+  "worm-head": 128,
+  "worm-body": 128,
+  food: 64,
+  powerup: 96,
 };
 
-const GROUP_BY_DIR: Record<string, PreloadGroup> = {
-  processed: "gameplay",
-  atlases: "gameplay",
-  audio: "gameplay",
-  fonts: "core",
-};
-
-async function walk(dir: string): Promise<string[]> {
-  try {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-    const files = await Promise.all(
-      entries.map((e) =>
-        e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)],
-      ),
-    );
-    return files.flat();
-  } catch {
-    return [];
+function frameSize(name: string): number {
+  for (const [prefix, size] of Object.entries(ATLAS_SIZES)) {
+    if (name.startsWith(prefix)) return size;
   }
+  return 96;
+}
+
+async function renderSquare(svgFile: string, size: number): Promise<Buffer> {
+  return sharp(svgFile, { density: 288 })
+    .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png({ compressionLevel: 9 })
+    .toBuffer();
 }
 
 async function main(): Promise<void> {
-  const groups = ["processed", "atlases", "audio", "fonts"] as const;
-  const entries: AssetEntry[] = [];
+  const t0 = Date.now();
   const problems: string[] = [];
+  const entries: AssetEntry[] = [];
+  const generated = new Date().toISOString();
 
-  for (const group of groups) {
-    const dir = path.join(assetsDir, group);
-    for (const file of await walk(dir)) {
-      const ext = path.extname(file).toLowerCase();
-      const rel = path.relative(assetsDir, file).replaceAll("\\", "/");
-      if (rel.split("/").some((seg) => seg === "tmp")) continue;
-      const type = TYPE_BY_EXT[ext];
-      if (!type) {
-        problems.push(`unsupported format: ${rel}`);
-        continue;
-      }
-      const buf = await fs.readFile(file);
-      if (buf.length === 0) {
-        problems.push(`empty asset: ${rel}`);
-        continue;
-      }
-      const version = createHash("sha256").update(buf).digest("hex").slice(0, 10);
-      entries.push({
-        id: rel.replace(/\.[^.]+$/, "").replaceAll("/", "."),
-        type,
-        path: `assets/${rel}`,
-        version,
-        preload: GROUP_BY_DIR[group] ?? "gameplay",
+  const addEntry = (e: Omit<AssetEntry, "version"> & { data: Buffer }): void => {
+    entries.push({
+      ...e,
+      version: createHash("sha256").update(e.data).digest("hex").slice(0, 10),
+    } as AssetEntry);
+  };
+
+  // 1. regenerate SVG masters + audio
+  const masters = await generateAllArt();
+  console.log(`[assets] ${masters.length} SVG masters generated`);
+  const audioFiles = await generateAllAudio();
+  console.log(`[assets] ${audioFiles.length} audio files synthesized`);
+
+  // 2. atlas frames (worm parts, food, powerups)
+  const frames: AtlasFrameIn[] = [];
+  for (const name of masters) {
+    if (!/^(worm-|food-|powerup-)/.test(name)) continue;
+    const size = frameSize(name);
+    const png = await renderSquare(path.join(paths.source, name), size);
+    frames.push({ name: name.replace(/\.svg$/, ""), png, width: size, height: size });
+  }
+  const atlas = await packAtlas(frames);
+  await writeFileEnsuring(path.join(paths.atlases, "game-atlas.png"), atlas.png);
+  await writeFileEnsuring(
+    path.join(paths.atlases, "game-atlas.json"),
+    JSON.stringify(atlas.json, null, 2),
+  );
+  await writeFileEnsuring(path.join(paths.clientAssets, "game-atlas.png"), atlas.png);
+  await writeFileEnsuring(
+    path.join(paths.clientAssets, "game-atlas.json"),
+    JSON.stringify(atlas.json),
+  );
+  addEntry({
+    id: "atlas.game", type: "atlas", path: "assets/game-atlas.png",
+    dataPath: "assets/game-atlas.json", width: atlas.width, height: atlas.height,
+    preload: "core", data: atlas.png,
+    meta: { source: "assets/source (procedural SVG)", generated, purpose: "gameplay sprites" },
+  });
+  console.log(`[assets] atlas packed: ${frames.length} frames, ${atlas.width}x${atlas.height}`);
+
+  // 3. standalone images
+  const standalone: Array<{ id: string; src: string; out: string; width: number; preload: AssetEntry["preload"] }> = [
+    { id: "img.logo", src: "logo-wordmark.svg", out: "logo.png", width: 800, preload: "core" },
+    { id: "img.icon512", src: "logo-icon.svg", out: "icon-512.png", width: 512, preload: "cosmetic" },
+    { id: "img.icon192", src: "logo-icon.svg", out: "icon-192.png", width: 192, preload: "cosmetic" },
+    { id: "img.bgtile", src: "bg-tile.svg", out: "bg-tile.png", width: 512, preload: "core" },
+  ];
+  for (const s of standalone) {
+    const buf = await sharp(path.join(paths.source, s.src), { density: 288 })
+      .resize({ width: s.width })
+      .png({ compressionLevel: 9 })
+      .toBuffer();
+    const meta = await sharp(buf).metadata();
+    await writeFileEnsuring(path.join(paths.processed, s.out), buf);
+    await writeFileEnsuring(path.join(paths.clientAssets, s.out), buf);
+    addEntry({
+      id: s.id, type: "image", path: `assets/${s.out}`,
+      width: meta.width, height: meta.height, preload: s.preload, data: buf,
+      meta: { source: `assets/source/${s.src}`, generated, purpose: s.id },
+    });
+  }
+  // favicon (32px png — modern browsers accept png favicons)
+  const favicon = await renderSquare(path.join(paths.source, "logo-icon.svg"), 64);
+  await writeFileEnsuring(path.join(paths.clientPublic, "favicon.png"), favicon);
+  // social preview 1200x630
+  const social = await sharp({
+    create: { width: 1200, height: 630, channels: 4, background: "#12082b" },
+  })
+    .composite([
+      {
+        input: await sharp(path.join(paths.source, "logo-wordmark.svg"), { density: 288 })
+          .resize({ width: 900 })
+          .png()
+          .toBuffer(),
+        gravity: "center",
+      },
+    ])
+    .png({ compressionLevel: 9 })
+    .toBuffer();
+  await writeFileEnsuring(path.join(paths.processed, "social-preview.png"), social);
+  await writeFileEnsuring(path.join(paths.clientPublic, "social-preview.png"), social);
+
+  // 4. fonts → client public
+  try {
+    for (const f of await fs.readdir(paths.fonts)) {
+      if (!/\.(ttf|woff2?)$/.test(f)) continue;
+      const buf = await fs.readFile(path.join(paths.fonts, f));
+      await writeFileEnsuring(path.join(paths.clientAssets, "fonts", f), buf);
+      addEntry({
+        id: `font.${f.replace(/\.[^.]+$/, "")}`, type: "font",
+        path: `assets/fonts/${f}`, preload: "core", data: buf,
+        meta: { license: "OFL-1.1 (see assets/fonts/LICENSE.md)", purpose: "UI font" },
       });
     }
-  }
+  } catch { /* no fonts dir */ }
 
+  // 5. audio → client public (generated by tools/audio; optional until M2 audio pass)
+  try {
+    for (const f of await fs.readdir(paths.audio)) {
+      if (!/\.(mp3|ogg|wav|m4a)$/.test(f)) continue;
+      const buf = await fs.readFile(path.join(paths.audio, f));
+      if (buf.length === 0) {
+        problems.push(`empty audio: ${f}`);
+        continue;
+      }
+      await writeFileEnsuring(path.join(paths.clientAssets, "audio", f), buf);
+      addEntry({
+        id: `audio.${f.replace(/\.[^.]+$/, "")}`, type: "audio",
+        path: `assets/audio/${f}`, preload: "gameplay", data: buf,
+        meta: { source: "tools/audio (procedural synthesis)", generated, purpose: "sfx/music" },
+      });
+    }
+  } catch { /* no audio yet */ }
+
+  // 6. validation (spec §97)
+  const seen = new Set<string>();
+  for (const e of entries) {
+    if (seen.has(e.id)) problems.push(`duplicate asset id: ${e.id}`);
+    seen.add(e.id);
+    if ((e.width ?? 0) > 4096 || (e.height ?? 0) > 4096) problems.push(`oversized: ${e.id}`);
+  }
   if (problems.length > 0) {
-    console.error("[asset-pipeline] validation problems:");
+    console.error("[assets] validation problems:");
     for (const p of problems) console.error("  -", p);
     process.exitCode = 1;
     return;
   }
 
+  // 7. manifest
   const manifest: AssetManifest = {
-    generatedAt: new Date().toISOString(),
-    pipelineVersion: 1,
+    generatedAt: generated,
+    pipelineVersion: 2,
     entries: entries.sort((a, b) => a.id.localeCompare(b.id)),
   };
-  await fs.mkdir(path.dirname(outManifest), { recursive: true });
-  await fs.writeFile(outManifest, JSON.stringify(manifest, null, 2));
-  console.log(`[asset-pipeline] manifest written: ${entries.length} assets → ${path.relative(root, outManifest)}`);
+  await writeFileEnsuring(
+    path.join(paths.clientPublic, "assets-manifest.json"),
+    JSON.stringify(manifest, null, 2),
+  );
+  console.log(
+    `[assets] done: ${entries.length} entries in ${Date.now() - t0}ms → apps/client/public/`,
+  );
 }
 
 void main();

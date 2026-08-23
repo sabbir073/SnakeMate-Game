@@ -1,4 +1,5 @@
 import { SIM } from "@nibblio/config";
+import type { PowerupKind } from "@nibblio/config";
 import { applyInput, createWorm, refreshDerived, stepWormMovement } from "@nibblio/game-core";
 import type { WormInput, WormState } from "@nibblio/game-core";
 import { angleDelta, wrapAngle } from "@nibblio/shared";
@@ -42,6 +43,18 @@ export class LocalPredictor {
 
   get pendingCount(): number {
     return this.pending.length;
+  }
+
+  /** Mirror server-granted powerup effects into the prediction replica.
+   *  The predictor steps with tick=0, so "active" is any positive expiry. */
+  setEffects(kinds: string[]): void {
+    const active = new Set(kinds);
+    for (const key of Object.keys(this.worm.effects) as PowerupKind[]) {
+      if (!active.has(key)) delete this.worm.effects[key];
+    }
+    for (const kind of kinds) {
+      this.worm.effects[kind as PowerupKind] = Number.MAX_SAFE_INTEGER;
+    }
   }
 
   /** Advance prediction by render-frame delta, generating fixed steps.

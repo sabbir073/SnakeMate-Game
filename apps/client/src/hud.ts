@@ -16,6 +16,8 @@ export class Hud {
   private scoreSub = $("score-sub");
   private lbList = $("leaderboard-list");
   private ownRank = $("own-rank");
+  private effectsEl = $("effects");
+  private lastEffects = "";
   private death = $("death");
   private deathStats = $("death-stats");
   private respawnBtn = $<HTMLButtonElement>("respawn");
@@ -41,6 +43,16 @@ export class Hud {
     this.scoreValue.textContent = String(Math.floor(score));
     const rankTxt = this.lastRank > 0 ? `#${this.lastRank}` : "—";
     this.scoreSub.textContent = `mass ${Math.floor(mass)} · rank ${rankTxt}`;
+  }
+
+  /** Active powerup chips, e.g. ["SPEED", "MAGNET"]. */
+  setEffects(kinds: string[]): void {
+    const key = kinds.join(",");
+    if (key === this.lastEffects) return;
+    this.lastEffects = key;
+    this.effectsEl.innerHTML = kinds
+      .map((k) => `<span class="effect-chip">${escapeHtml(k.replace(/_/g, " "))}</span>`)
+      .join("");
   }
 
   setLeaderboard(msg: LeaderboardMessage, ownId: string): void {

@@ -4,7 +4,7 @@ import { joinArena, probe, steer } from "./helpers.js";
 test.describe("single client", () => {
   test("homepage loads with branding and play flow", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator("#logo-title")).toHaveText(/NIBBLIO/);
+    await expect(page.locator("#logo-title img")).toBeVisible();
     await expect(page.locator("#play")).toBeVisible();
     await expect(page.locator("#nickname")).toBeVisible();
     const title = await page.title();

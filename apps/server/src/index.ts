@@ -33,7 +33,7 @@ const gameServer = new Server({
   transport: new WebSocketTransport({ server: httpServer }),
 });
 
-gameServer.define(ARENA_ROOM, ArenaRoom);
+gameServer.define(ARENA_ROOM, ArenaRoom).filterBy(["channel"]);
 
 // room/player accounting for /health
 gameServer.onShutdown(() => {

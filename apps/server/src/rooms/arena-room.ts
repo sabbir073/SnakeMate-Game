@@ -1,7 +1,7 @@
 import { Room } from "@colyseus/core";
 import type { Client } from "@colyseus/core";
 import { NET, ROOM, SIM, WORLD } from "@nibblio/config";
-import { Simulation, createWorm, emptyEvents } from "@nibblio/game-core";
+import { Simulation, activeEffects, createWorm, emptyEvents } from "@nibblio/game-core";
 import type { StepEvents, WormInput } from "@nibblio/game-core";
 import {
   ARENA_ROOM, MSG, PROTOCOL_VERSION, sanitizeNickname,
@@ -12,7 +12,7 @@ import type {
 import { createRng, hashString, wrapAngle } from "@nibblio/shared";
 import { logger } from "../logger.js";
 import { SERVER_VERSION } from "../version.js";
-import { ArenaState, FoodSchema, WormSchema } from "./state.js";
+import { ArenaState, FoodSchema, PowerupSchema, WormSchema } from "./state.js";
 
 export { ARENA_ROOM };
 
@@ -24,6 +24,7 @@ export class ArenaRoom extends Room<ArenaState> {
 
   private sim!: Simulation;
   private pendingInputs = new Map<string, WormInput>();
+  private pendingForceKills: string[] = [];
   private events: StepEvents = emptyEvents();
   private lastLeaderboardAt = 0;
 
@@ -75,8 +76,35 @@ export class ArenaRoom extends Room<ArenaState> {
     );
   }
 
-  override onLeave(client: Client): void {
-    // M1 scope: leaving removes the worm. Reconnect grace lands in M2 (§74).
+  override async onLeave(client: Client, consented?: boolean): Promise<void> {
+    const worm = this.sim.world.worms.get(client.sessionId);
+
+    // Reconnect grace (spec §74): an unexpected drop keeps the worm alive
+    // (server-piloted: no inputs ⇒ it cruises straight, no boost) while the
+    // client may resume the same session.
+    if (!consented && worm?.alive) {
+      logger.info(
+        { roomId: this.roomId, sessionId: client.sessionId, event: "player_drop" },
+        "player dropped — holding worm for reconnect",
+      );
+      try {
+        await this.allowReconnection(client, NET.reconnectGraceSec);
+        logger.info(
+          { roomId: this.roomId, sessionId: client.sessionId, event: "player_reconnect" },
+          "player reconnected",
+        );
+        return; // worm was never removed; play continues
+      } catch {
+        // grace expired — the worm dies normally (loot drops) on the next tick
+        this.pendingForceKills.push(client.sessionId);
+        logger.info(
+          { roomId: this.roomId, sessionId: client.sessionId, event: "reconnect_expired" },
+          "reconnect window expired",
+        );
+        return;
+      }
+    }
+
     this.removeWorm(client.sessionId);
     logger.info(
       { roomId: this.roomId, sessionId: client.sessionId, event: "player_leave" },
@@ -103,6 +131,16 @@ export class ArenaRoom extends Room<ArenaState> {
     this.events = emptyEvents();
     this.sim.step(this.pendingInputs, this.events);
     this.pendingInputs.clear();
+
+    // expired-reconnect worms die between ticks; loot syncs with this tick
+    if (this.pendingForceKills.length > 0) {
+      for (const id of this.pendingForceKills) this.sim.forceKill(id, this.events);
+      const killed = this.pendingForceKills.splice(0);
+      // remove abandoned worms shortly after their death is broadcast
+      this.clock.setTimeout(() => {
+        for (const id of killed) this.removeWorm(id);
+      }, 1500);
+    }
 
     this.syncSchema();
     this.dispatchEvents();
@@ -182,6 +220,19 @@ export class ArenaRoom extends Room<ArenaState> {
       this.state.food.delete(String(id));
     }
 
+    // powerup deltas
+    for (const p of this.events.powerupsSpawned) {
+      const ps = new PowerupSchema();
+      ps.id = p.id;
+      ps.kind = p.kind;
+      ps.x = p.x;
+      ps.y = p.y;
+      this.state.powerups.set(String(p.id), ps);
+    }
+    for (const id of this.events.powerupsRemoved) {
+      this.state.powerups.delete(String(id));
+    }
+
     for (const [id, w] of this.sim.world.worms) {
       const ws = this.state.worms.get(id);
       if (!ws) continue;
@@ -193,6 +244,8 @@ export class ArenaRoom extends Room<ArenaState> {
       ws.boosting = w.boosting;
       ws.alive = w.alive;
       ws.lastInputSeq = w.lastInputSeq;
+      const fx = activeEffects(this.sim.world, w).join(",");
+      if (ws.effects !== fx) ws.effects = fx;
     }
   }
 

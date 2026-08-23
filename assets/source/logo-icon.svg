@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+<defs><radialGradient id="g" cx="0.5" cy="0.42" r="0.65">
+<stop offset="0" stop-color="#ffc874"/><stop offset="1" stop-color="#FFB545"/>
+</radialGradient></defs>
+<rect x="8" y="8" width="496" height="496" rx="112" fill="#1D0F42" stroke="#3A2477" stroke-width="14"/>
+<circle cx="256" cy="256" r="158" fill="url(#g)" stroke="#2B1A3D" stroke-width="18"/>
+<ellipse cx="205.44" cy="189.64" rx="53.720000000000006" ry="34.76" fill="#ffffff" opacity="0.55" transform="rotate(-24 205.44 189.64)"/>
+<ellipse cx="379.24" cy="256" rx="22.12" ry="30.02" fill="#966115" stroke="#2B1A3D" stroke-width="9"/>
+<circle cx="312.88" cy="183.32" r="47.4" fill="#ffffff" stroke="#2B1A3D" stroke-width="6.636"/>
+<circle cx="326.152" cy="185.69" r="22.752" fill="#241435"/>
+<circle cx="334.21" cy="174.78799999999998" r="7.584" fill="#ffffff"/>
+<circle cx="312.88" cy="328.68" r="47.4" fill="#ffffff" stroke="#2B1A3D" stroke-width="6.636"/>
+<circle cx="326.152" cy="331.05" r="22.752" fill="#241435"/>
+<circle cx="334.21" cy="320.148" r="7.584" fill="#ffffff"/>
+</svg>

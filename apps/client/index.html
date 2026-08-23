@@ -9,14 +9,32 @@
     <meta name="theme-color" content="#12082b" />
     <meta name="description" content="Nibblio — eat, grow, outslither everyone. Free browser multiplayer worm arena." />
     <title>Nibblio — multiplayer worm arena</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta property="og:title" content="Nibblio — multiplayer worm arena" />
+    <meta property="og:description" content="Eat. Grow. Outslither everyone. Free browser multiplayer worm arena." />
+    <meta property="og:image" content="/social-preview.png" />
     <style>
-      /* Minimal critical CSS — the full UI system arrives with the design system (M2). */
+      @font-face {
+        font-family: "Baloo 2";
+        src: url("/assets/fonts/baloo2-regular.ttf") format("truetype");
+        font-weight: 400; font-display: swap;
+      }
+      @font-face {
+        font-family: "Baloo 2";
+        src: url("/assets/fonts/baloo2-semibold.ttf") format("truetype");
+        font-weight: 600; font-display: swap;
+      }
+      @font-face {
+        font-family: "Baloo 2";
+        src: url("/assets/fonts/baloo2-extrabold.ttf") format("truetype");
+        font-weight: 800; font-display: swap;
+      }
       * { margin: 0; padding: 0; box-sizing: border-box; }
       html, body {
         width: 100%; height: 100%;
         background: #12082b;
         overflow: hidden;
-        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        font-family: "Baloo 2", system-ui, -apple-system, "Segoe UI", sans-serif;
         touch-action: none;
         -webkit-user-select: none; user-select: none;
       }
@@ -64,7 +82,39 @@
       #play:active { transform: translateY(3px); box-shadow: 0 1px 0 #b57718; }
       #play:disabled { opacity: 0.6; cursor: default; }
       #status { color: #8f7cc9; font-size: 14px; min-height: 20px; }
+      #skins { display: flex; gap: 10px; }
+      .skin-dot {
+        width: 40px; height: 40px; border-radius: 50%;
+        border: 3px solid transparent; cursor: pointer; padding: 0;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+        transition: transform 0.1s ease;
+      }
+      .skin-dot:hover { transform: scale(1.12); }
+      .skin-dot.selected { border-color: #ffd166; transform: scale(1.12); }
       .version { position: absolute; bottom: 10px; right: 14px; color: #55428a; font-size: 11px; }
+      .gear-btn {
+        background: rgba(29, 15, 66, 0.8); color: #b9a7e6;
+        border: 1px solid #3a2477; border-radius: 12px;
+        width: 42px; height: 42px; font-size: 20px; cursor: pointer;
+        pointer-events: auto;
+      }
+      #hud .gear-btn {
+        position: absolute;
+        left: max(14px, env(safe-area-inset-left));
+        top: calc(max(12px, env(safe-area-inset-top)) + 64px);
+      }
+      #reconnect {
+        position: absolute; inset: 0; z-index: 30;
+        display: none; flex-direction: column; align-items: center; justify-content: center;
+        gap: 12px; background: rgba(10, 4, 26, 0.8); color: #fff;
+      }
+      #reconnect.visible { display: flex; }
+      #reconnect .spinner {
+        width: 44px; height: 44px; border-radius: 50%;
+        border: 4px solid #3a2477; border-top-color: #ffd166;
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
 
       /* ── in-game HUD ── */
       #hud { position: absolute; inset: 0; pointer-events: none; z-index: 5; display: none; }
@@ -79,6 +129,18 @@
         font-size: 15px; font-weight: 700;
       }
       #score-panel .sub { font-size: 12px; font-weight: 500; color: #b9a7e6; }
+      #effects {
+        position: absolute;
+        left: 50%; transform: translateX(-50%);
+        top: max(12px, env(safe-area-inset-top));
+        display: flex; gap: 6px;
+      }
+      .effect-chip {
+        background: rgba(124, 58, 237, 0.85);
+        border: 1px solid #a78bfa; border-radius: 999px;
+        padding: 4px 12px; color: #fff;
+        font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em;
+      }
       #leaderboard {
         position: absolute;
         right: max(14px, env(safe-area-inset-right));
@@ -124,11 +186,17 @@
           <div id="score-value">0</div>
           <div class="sub" id="score-sub">mass 10 · rank —</div>
         </div>
+        <div id="effects"></div>
+        <button class="gear-btn" id="settings-btn-game" aria-label="Settings">⚙</button>
         <div id="leaderboard">
           <h3>LEADERBOARD</h3>
           <ol id="leaderboard-list"></ol>
           <div class="own-rank" id="own-rank"></div>
         </div>
+      </div>
+      <div id="reconnect">
+        <div class="spinner"></div>
+        <div id="reconnect-msg">Connection lost — reconnecting…</div>
       </div>
       <div id="death">
         <h2 id="death-title">YOU GOT NIBBLED</h2>
@@ -139,8 +207,10 @@
         <div class="logo-title" id="logo-title">NIBBLIO</div>
         <div class="tagline" id="tagline">Eat. Grow. Outslither everyone.</div>
         <input id="nickname" maxlength="16" placeholder="Your nickname" autocomplete="off" spellcheck="false" />
+        <div id="skins" role="radiogroup" aria-label="Choose your worm skin"></div>
         <button id="play">PLAY</button>
         <div id="status" role="status"></div>
+        <button class="gear-btn" id="settings-btn-home" aria-label="Settings" style="position:absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right));">⚙</button>
         <div class="version" id="version"></div>
       </div>
     </div>

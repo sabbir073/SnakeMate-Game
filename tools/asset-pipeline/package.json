@@ -11,10 +11,14 @@
     "lint": "echo lint: asset-pipeline ok"
   },
   "dependencies": {
-    "@nibblio/asset-types": "workspace:*"
+    "@nibblio/asset-types": "workspace:*",
+    "@nibblio/config": "workspace:*",
+    "opentype.js": "^1.3.4",
+    "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/opentype.js": "^1.3.10",
     "tsx": "^4.19.0",
     "typescript": "^5.9.0",
     "vitest": "^3.2.0"

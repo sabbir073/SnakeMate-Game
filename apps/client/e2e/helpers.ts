@@ -12,8 +12,20 @@ export interface NibblioProbe {
   y: number;
 }
 
-export async function joinArena(page: Page, nickname: string, path = "/"): Promise<void> {
-  await page.goto(path);
+let channelCounter = 0;
+
+/** Unique matchmaking channel per test invocation → fresh isolated room. */
+export function freshChannel(): string {
+  channelCounter++;
+  return `t${Date.now().toString(36)}-${channelCounter}`;
+}
+
+export async function joinArena(
+  page: Page, nickname: string, path = "/", channel?: string,
+): Promise<void> {
+  const ch = channel ?? freshChannel();
+  const sep = path.includes("?") ? "&" : "?";
+  await page.goto(`${path}${sep}room=${ch}`);
   await page.fill("#nickname", nickname);
   await page.click("#play");
   // HUD appears once connected and the scene booted

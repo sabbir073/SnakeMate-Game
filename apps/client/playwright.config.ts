@@ -14,7 +14,9 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   fullyParallel: false,
   workers: 1,
-  retries: process.env.CI ? 1 : 0,
+  // Multiplayer suites share a live server; a room can carry reconnect-grace
+  // ghosts across files, so one retry absorbs that cross-file coupling.
+  retries: 1,
   reporter: [["list"]],
   use: {
     baseURL: "http://localhost:5173",

@@ -15,6 +15,8 @@ export class WormSchema extends Schema {
   @type("boolean") boosting = false;
   @type("boolean") alive = true;
   @type("uint32") lastInputSeq = 0;
+  /** Comma-joined active powerup kinds (e.g. "SPEED,MAGNET"). */
+  @type("string") effects = "";
 }
 
 export class FoodSchema extends Schema {
@@ -25,9 +27,17 @@ export class FoodSchema extends Schema {
   @type("uint8") value = 1;
 }
 
+export class PowerupSchema extends Schema {
+  @type("uint32") id = 0;
+  @type("string") kind = "SPEED";
+  @type("float32") x = 0;
+  @type("float32") y = 0;
+}
+
 export class ArenaState extends Schema {
   @type("uint32") tick = 0;
   @type("uint32") worldSize = 0;
   @type({ map: WormSchema }) worms = new MapSchema<WormSchema>();
   @type({ map: FoodSchema }) food = new MapSchema<FoodSchema>();
+  @type({ map: PowerupSchema }) powerups = new MapSchema<PowerupSchema>();
 }

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<defs><radialGradient id="g" cx="0.5" cy="0.42" r="0.65">
+<stop offset="0" stop-color="#ff93c8"/><stop offset="1" stop-color="#FF6FB5"/>
+</radialGradient><linearGradient id="mouth" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#a73b72"/><stop offset="1" stop-color="#7d2c56"/>
+</linearGradient></defs>
+
+<circle cx="128" cy="128" r="107.52" fill="url(#g)" stroke="#2B1A3D" stroke-width="14.08"/>
+<path d="M 111.872 20.480000000000004 A 107.52 107.52 0 0 1 111.872 235.51999999999998" fill="#FFC2E0" opacity="0.35"/>
+<ellipse cx="93.59360000000001" cy="82.8416" rx="36.5568" ry="23.6544" fill="#ffffff" opacity="0.55" transform="rotate(-24 93.59360000000001 82.8416)"/>
+<ellipse cx="211.8656" cy="128" rx="15.052800000000001" ry="20.4288" fill="url(#mouth)" stroke="#2B1A3D" stroke-width="7.04"/>
+<circle cx="166.7072" cy="78.54079999999999" r="32.256" fill="#ffffff" stroke="#2B1A3D" stroke-width="4.515840000000001"/>
+<circle cx="175.73888" cy="80.15359999999998" r="15.48288" fill="#241435"/>
+<circle cx="181.2224" cy="72.73472" r="5.16096" fill="#ffffff"/>
+<circle cx="166.7072" cy="177.4592" r="32.256" fill="#ffffff" stroke="#2B1A3D" stroke-width="4.515840000000001"/>
+<circle cx="175.73888" cy="179.072" r="15.48288" fill="#241435"/>
+<circle cx="181.2224" cy="171.65312" r="5.16096" fill="#ffffff"/>
+</svg>

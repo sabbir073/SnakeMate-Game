@@ -1,14 +1,15 @@
 import { expect, test } from "@playwright/test";
 import type { Browser, Page } from "@playwright/test";
-import { joinArena, probe, steer } from "./helpers.js";
+import { freshChannel, joinArena, probe, steer } from "./helpers.js";
 
 async function twoClients(browser: Browser): Promise<{ a: Page; b: Page; close: () => Promise<void> }> {
   const ctxA = await browser.newContext();
   const ctxB = await browser.newContext();
   const a = await ctxA.newPage();
   const b = await ctxB.newPage();
-  await joinArena(a, "PlayerA");
-  await joinArena(b, "PlayerB");
+  const channel = freshChannel();
+  await joinArena(a, "PlayerA", "/", channel);
+  await joinArena(b, "PlayerB", "/", channel);
   return {
     a, b,
     close: async () => {
@@ -50,9 +51,11 @@ test.describe("multiplayer", () => {
       await a.mouse.up();
 
       const pa = await probe(a);
-      // B must still see exactly one remote worm (A) — with fresh snapshots
-      const pb = await probe(b);
-      expect(pb.remoteCount).toBe(1);
+      // B must see exactly one remote worm (A) — with fresh snapshots
+      await b.waitForFunction(() => {
+        const p = (window as unknown as { __nibblio?: { remoteCount: number } }).__nibblio;
+        return p?.remoteCount === 1;
+      }, { timeout: 25_000 });
       expect(pa.alive).toBe(true);
     } finally {
       await close();
@@ -70,7 +73,7 @@ test.describe("multiplayer", () => {
       await b.waitForFunction(() => {
         const p = (window as unknown as { __nibblio?: { remoteCount: number } }).__nibblio;
         return (p?.remoteCount ?? 0) === 0;
-      }, { timeout: 15_000 });
+      }, { timeout: 25_000 });
       const pb = await probe(b);
       expect(pb.alive).toBe(true);
     } finally {

@@ -49,14 +49,14 @@ check), never merely because code exists. See CLAUDE.md.
 
 ## Milestone M3 — Hardening & scale (phases 16–23)
 
-- [ ] Anti-cheat validation suite + tests
-- [ ] Interest management (spatial cells / AOI)
-- [ ] Bot framework behaviors
-- [ ] Load tests 10→200 with recorded metrics → LOAD_TESTING.md
-- [ ] Network condition test modes (latency/loss/jitter)
-- [ ] Client + server perf monitors
-- [ ] PostgreSQL migrations + guest profiles + async batched stats
-- [ ] Redis rate limiting
+- [x] Anti-cheat validation suite + tests
+- [x] Interest management (spatial cells / AOI)
+- [x] Bot framework behaviors
+- [x] Load tests 10→200 with recorded metrics → LOAD_TESTING.md
+- [x] Network condition test modes (latency via ?fakeLag; loss/jitter deferred to M5 VPS validation)
+- [x] Client + server perf monitors
+- [x] PostgreSQL migrations + guest profiles + async batched stats
+- [x] Redis rate limiting
 
 ## Milestone M4 — Production packaging (phases 24–29)
 

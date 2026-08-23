@@ -1,5 +1,5 @@
 import { Room } from "@colyseus/core";
-import type { Client } from "@colyseus/core";
+import type { AuthContext, Client } from "@colyseus/core";
 import { StateView } from "@colyseus/schema";
 import { NET, ROOM, SIM, WORLD } from "@nibblio/config";
 import { Simulation, activeEffects, createWorm, emptyEvents } from "@nibblio/game-core";
@@ -13,6 +13,9 @@ import type {
 import { createRng, hashString, wrapAngle } from "@nibblio/shared";
 import { InputGuard } from "../anti-cheat.js";
 import { logger } from "../logger.js";
+import { queueMatchResult, touchGuestProfile } from "../db/persistence.js";
+import { registerRoom, unregisterRoom } from "../metrics.js";
+import { rateLimit } from "../rate-limit.js";
 import { SERVER_VERSION } from "../version.js";
 import { ArenaState, FoodSchema, PowerupSchema, WormSchema } from "./state.js";
 
@@ -28,16 +31,26 @@ export class ArenaRoom extends Room<ArenaState> {
   private pendingInputs = new Map<string, WormInput>();
   private pendingForceKills: string[] = [];
   private guards = new Map<string, InputGuard>();
+  /** Persistent identity + per-session gameplay accumulators (spec §91). */
+  private guestIds = new Map<string, string>();
+  private sessionStats = new Map<string, {
+    foodCollected: number; powerupsCollected: number; boostTimeSec: number;
+  }>();
   /** AOI: currently-visible food ids per client (ADR-008). */
   private visibleFood = new Map<string, Set<number>>();
   private aoiQueryBuf: number[] = [];
   private events: StepEvents = emptyEvents();
   private lastLeaderboardAt = 0;
 
-  /** Tick-duration accounting (spec §50). */
+  /** Tick-duration accounting (spec §50): lifetime + rolling 5s window. */
   private tickDurTotal = 0;
   private tickDurMax = 0;
   private tickCount = 0;
+  private windowDur = 0;
+  private windowCount = 0;
+  private windowMax = 0;
+  private rollAvgMs = 0;
+  private rollMaxMs = 0;
 
   override onCreate(): void {
     this.state = new ArenaState();
@@ -49,8 +62,33 @@ export class ArenaRoom extends Room<ArenaState> {
 
     this.onMessage<InputMessage>(MSG.input, (client, msg) => this.onInput(client, msg));
     this.onMessage(MSG.respawn, (client) => this.spawnWorm(client.sessionId));
+    this.onMessage(MSG.ping, (client, msg: { t: number }) => {
+      if (typeof msg?.t === "number") client.send(MSG.ping, msg);
+    });
+
+    registerRoom(this.roomId, () => ({
+      roomId: this.roomId,
+      players: this.clients.length,
+      worms: this.sim.world.worms.size,
+      food: this.sim.world.food.size,
+      tickAvgMs: Number(this.rollAvgMs.toFixed(3)),
+      tickMaxMs: Number(this.rollMaxMs.toFixed(3)),
+      tick: this.sim.world.tick,
+    }));
 
     logger.info({ roomId: this.roomId, event: "room_create" }, "arena room created");
+  }
+
+  override async onAuth(_client: Client, _options: unknown, context: AuthContext): Promise<boolean> {
+    const headers = (context as { headers?: Record<string, string | string[] | undefined> }).headers;
+    const fwd = headers?.["x-forwarded-for"];
+    const ip = (context as { ip?: string }).ip
+      ?? (Array.isArray(fwd) ? fwd[0] : fwd?.split(",")[0]?.trim())
+      ?? "unknown";
+    // spec §56: 20 joins/min per IP — generous for humans, stops join floods
+    const allowed = await rateLimit(`join:${ip}`, 20, 60);
+    if (!allowed) throw new Error("rate_limited");
+    return true;
   }
 
   override onJoin(client: Client, options: JoinOptions): void {
@@ -65,6 +103,11 @@ export class ArenaRoom extends Room<ArenaState> {
     }
 
     const nickname = sanitizeNickname(options.nickname ?? "");
+    const guestId = typeof options.guestId === "string" ? options.guestId.slice(0, 64) : "";
+    if (guestId) {
+      this.guestIds.set(client.sessionId, guestId);
+      touchGuestProfile(guestId, nickname, options.skinId ?? "s0");
+    }
     client.view = new StateView();
     this.spawnWorm(client.sessionId, nickname, options.skinId ?? "s0");
     this.refreshAoiFor(client); // immediate first snapshot of nearby food
@@ -113,7 +156,9 @@ export class ArenaRoom extends Room<ArenaState> {
       }
     }
 
+    if (worm?.alive) this.persistRun(client.sessionId, false);
     this.removeWorm(client.sessionId);
+    this.guestIds.delete(client.sessionId);
     logger.info(
       { roomId: this.roomId, sessionId: client.sessionId, event: "player_leave" },
       "player left",
@@ -121,6 +166,7 @@ export class ArenaRoom extends Room<ArenaState> {
   }
 
   override onDispose(): void {
+    unregisterRoom(this.roomId);
     const avg = this.tickCount ? (this.tickDurTotal / this.tickCount).toFixed(3) : "0";
     logger.info(
       {
@@ -150,6 +196,7 @@ export class ArenaRoom extends Room<ArenaState> {
       }, 1500);
     }
 
+    this.accumulateSessionStats();
     this.syncSchema();
     if (this.sim.world.tick % NET.aoiRefreshTicks === 0) this.refreshAoi();
     this.dispatchEvents();
@@ -159,6 +206,16 @@ export class ArenaRoom extends Room<ArenaState> {
     this.tickDurTotal += dur;
     this.tickCount++;
     if (dur > this.tickDurMax) this.tickDurMax = dur;
+    this.windowDur += dur;
+    this.windowCount++;
+    if (dur > this.windowMax) this.windowMax = dur;
+    if (this.windowCount >= SIM.tickRate * 5) {
+      this.rollAvgMs = this.windowDur / this.windowCount;
+      this.rollMaxMs = this.windowMax;
+      this.windowDur = 0;
+      this.windowCount = 0;
+      this.windowMax = 0;
+    }
   }
 
   private onInput(client: Client, msg: InputMessage): void {
@@ -216,6 +273,45 @@ export class ArenaRoom extends Room<ArenaState> {
       );
     }
     this.guards.delete(sessionId);
+  }
+
+  // ── per-session stat accumulation (spec §91) ─────────────────────────────
+
+  private statsFor(sessionId: string) {
+    let st = this.sessionStats.get(sessionId);
+    if (!st) {
+      st = { foodCollected: 0, powerupsCollected: 0, boostTimeSec: 0 };
+      this.sessionStats.set(sessionId, st);
+    }
+    return st;
+  }
+
+  private accumulateSessionStats(): void {
+    for (const e of this.events.foodEaten) this.statsFor(e.wormId).foodCollected++;
+    for (const e of this.events.powerupsTaken) this.statsFor(e.wormId).powerupsCollected++;
+    for (const w of this.sim.world.worms.values()) {
+      if (w.alive && w.boosting) this.statsFor(w.id).boostTimeSec += SIM.dt;
+    }
+  }
+
+  /** Queue this session's run into the async persistence batch. */
+  private persistRun(sessionId: string, died: boolean): void {
+    const guestId = this.guestIds.get(sessionId);
+    const worm = this.sim.world.worms.get(sessionId);
+    if (!guestId || !worm) return;
+    const st = this.statsFor(sessionId);
+    queueMatchResult({
+      guestId,
+      score: worm.score,
+      kills: worm.kills,
+      survivedSec: (this.sim.world.tick - worm.spawnTick) / SIM.tickRate,
+      rank: this.rankOf(sessionId),
+      foodCollected: st.foodCollected,
+      powerupsCollected: st.powerupsCollected,
+      boostTimeSec: st.boostTimeSec,
+      died,
+    });
+    this.sessionStats.delete(sessionId);
   }
 
   // ── interest management (spec §30, ADR-008) ──────────────────────────────
@@ -308,6 +404,7 @@ export class ArenaRoom extends Room<ArenaState> {
     for (const death of this.events.deaths) {
       const w = this.sim.world.worms.get(death.wormId);
       if (!w) continue;
+      this.persistRun(death.wormId, true);
       const killer = death.killerId ? this.sim.world.worms.get(death.killerId) : null;
       const client = this.clients.find((c) => c.sessionId === death.wormId);
       client?.send(MSG.death, {

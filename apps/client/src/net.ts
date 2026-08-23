@@ -32,10 +32,18 @@ export interface Connection {
 export async function connect(nickname: string, skinId = "s0"): Promise<Connection> {
   const client = new Client(serverEndpoint());
   let channel = "main";
+  let guestId = "";
   try {
     channel = new URLSearchParams(location.search).get("room") ?? "main";
-  } catch { /* non-browser context */ }
-  const options: JoinOptions = { protocolVersion: PROTOCOL_VERSION, nickname, skinId, channel };
+    guestId = localStorage.getItem("nibblio.guestId") ?? "";
+    if (!guestId) {
+      guestId = crypto.randomUUID();
+      localStorage.setItem("nibblio.guestId", guestId);
+    }
+  } catch { /* non-browser/private context — anonymous session */ }
+  const options: JoinOptions = {
+    protocolVersion: PROTOCOL_VERSION, nickname, skinId, channel, guestId,
+  };
   const room = await client.joinOrCreate(ARENA_ROOM, options);
 
   const welcome = await new Promise<WelcomeMessage>((resolve, reject) => {

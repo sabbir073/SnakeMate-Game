@@ -23,6 +23,8 @@ export const MSG = {
   leaderboard: "lb",
   /** server → client: protocol/version rejection before disconnect */
   reject: "x",
+  /** bidirectional: latency probe — echoed verbatim by the server */
+  ping: "p",
 } as const;
 
 // ── client → server ──────────────────────────────────────────────────────────
@@ -45,6 +47,8 @@ export interface JoinOptions {
   /** Matchmaking channel — rooms only match equal channels (default "main").
    *  Used by tests/dev for isolation; harmless in production. */
   channel?: string;
+  /** Persistent client-generated guest identity (spec §35) — stats key. */
+  guestId?: string;
 }
 
 // ── server → client ──────────────────────────────────────────────────────────

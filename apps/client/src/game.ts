@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { getStateCallbacks } from "colyseus.js";
-import { CAMERA, FOOD, GAME, WORM } from "@nibblio/config";
+import { CAMERA, FOOD, GAME, NET, WORM } from "@nibblio/config";
 import type { FoodKind } from "@nibblio/config";
 import { wrapAngle } from "@nibblio/shared";
 import type { WormInput } from "@nibblio/game-core";
@@ -13,6 +13,8 @@ import { Hud } from "./hud.js";
 import { AudioManager } from "./audio.js";
 import { MobileControls, isTouchDevice } from "./mobile-controls.js";
 import { getSettings } from "./settings.js";
+import { DebugPanel } from "./debug-panel.js";
+import { CLIENT_VERSION } from "./main.js";
 
 export interface StartOptions {
   nickname: string;
@@ -73,6 +75,14 @@ class ArenaScene extends Phaser.Scene {
   private mobile: MobileControls | null = null;
   private reconnecting = false;
   private prevBoosting = false;
+  private debug!: DebugPanel;
+  private pingMs = 0;
+  private jitterMs = 0;
+  private lastPingSent = 0;
+  private pingTimer: ReturnType<typeof setInterval> | null = null;
+  private fpsAccum = 0;
+  private fpsFrames = 0;
+  private fps = 60;
   private inputSeq = 0;
   private boostHeld = false;
   private localAlive = true;
@@ -122,6 +132,8 @@ class ArenaScene extends Phaser.Scene {
     this.audio.play("spawn");
 
     if (isTouchDevice()) this.mobile = new MobileControls();
+    this.debug = new DebugPanel();
+    this.startPing();
 
     this.wireState();
     this.wireMessages();
@@ -132,6 +144,8 @@ class ArenaScene extends Phaser.Scene {
       this.hud.hide();
       this.audio.destroy();
       this.mobile?.destroy();
+      this.debug.destroy();
+      if (this.pingTimer) clearInterval(this.pingTimer);
       void this.conn.leave();
     });
 
@@ -306,6 +320,29 @@ class ArenaScene extends Phaser.Scene {
     this.powerups.clear();
   }
 
+  private startPing(): void {
+    this.conn.room.onMessage("p", (msg: { t: number }) => {
+      const rtt = performance.now() - msg.t;
+      this.jitterMs = this.jitterMs * 0.7 + Math.abs(rtt - this.pingMs) * 0.3;
+      this.pingMs = this.pingMs === 0 ? rtt : this.pingMs * 0.7 + rtt * 0.3;
+    });
+    this.pingTimer = setInterval(() => {
+      if (this.reconnecting) return;
+      try {
+        this.lastPingSent = performance.now();
+        this.conn.room.send("p", { t: this.lastPingSent });
+      } catch { /* socket down; reconnect flow handles it */ }
+    }, 2000);
+  }
+
+  private qualityNow(): "excellent" | "good" | "poor" | "reconnecting" {
+    if (this.reconnecting) return "reconnecting";
+    const q = NET.quality;
+    if (this.pingMs <= q.excellent.ping && this.jitterMs <= q.excellent.jitter) return "excellent";
+    if (this.pingMs <= q.good.ping && this.jitterMs <= q.good.jitter) return "good";
+    return "poor";
+  }
+
   private wireInput(): void {
     this.input.on("pointerdown", () => { this.boostHeld = true; });
     this.input.on("pointerup", () => { this.boostHeld = false; });
@@ -334,6 +371,31 @@ class ArenaScene extends Phaser.Scene {
     this.hud.setScore(this.localScore, this.localMassView);
     this.hud.setEffects(this.localEffects);
 
+    // fps (1s window) + debug panel at ~4Hz
+    this.fpsAccum += dt;
+    this.fpsFrames++;
+    if (this.fpsAccum >= 1) {
+      this.fps = this.fpsFrames / this.fpsAccum;
+      this.fpsAccum = 0;
+      this.fpsFrames = 0;
+    }
+    if ((this.game.getFrame() & 15) === 0) {
+      this.debug.setQuality(this.qualityNow());
+      this.debug.update({
+        fps: this.fps,
+        frameMs: deltaMs,
+        visibleEntities: this.foodPool.filter((sp) => sp.visible).length + this.remotes.size + 1,
+        totalEntities: this.food.size + this.remotes.size + this.powerups.size + 1,
+        pingMs: this.pingMs,
+        jitterMs: this.jitterMs,
+        serverTick: (this.conn.room.state as { tick?: number }).tick ?? 0,
+        predictionError: this.predictor.lastErrorMagnitude,
+        pendingInputs: this.predictor.pendingCount,
+        clientVersion: CLIENT_VERSION,
+        serverVersion: this.conn.welcome.serverVersion,
+      });
+    }
+
     // E2E/diagnostics hook (read-only; also feeds the dev perf panel in M3)
     (window as unknown as { __nibblio?: unknown }).__nibblio = {
       reconnecting: this.reconnecting,
@@ -344,6 +406,7 @@ class ArenaScene extends Phaser.Scene {
       foodCount: this.food.size,
       predictionError: this.predictor.lastErrorMagnitude,
       pendingInputs: this.predictor.pendingCount,
+      pingMs: this.pingMs,
       x: this.predictor.worm.x,
       y: this.predictor.worm.y,
     };

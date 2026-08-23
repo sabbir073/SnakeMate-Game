@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { PROTOCOL_VERSION } from "@nibblio/protocol";
+import { snapshotMetrics } from "./metrics.js";
 import { SERVER_VERSION } from "./version.js";
 
 export interface HealthProviders {
@@ -49,6 +50,10 @@ export function handleHttp(
         protocol: PROTOCOL_VERSION,
         node: process.version,
       });
+      return true;
+
+    case "/metrics":
+      json(res, 200, snapshotMetrics());
       return true;
 
     default:

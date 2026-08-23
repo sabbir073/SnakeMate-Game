@@ -34,6 +34,7 @@ WORKDIR /app
 
 COPY --from=build /deploy/node_modules ./node_modules
 COPY --from=build /app/apps/server/dist ./dist
+COPY --from=build /app/apps/server/migrations ./migrations
 COPY --from=build /app/apps/server/package.json ./package.json
 
 # non-root (spec §61)

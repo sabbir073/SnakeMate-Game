@@ -3,6 +3,9 @@ import { Server, matchMaker } from "@colyseus/core";
 import { Encoder } from "@colyseus/schema";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { ARENA_ROOM } from "@nibblio/protocol";
+import { closeDb, initDb } from "./db/index.js";
+import { startPersistence, stopPersistence } from "./db/persistence.js";
+import { closeRedis, initRedis } from "./rate-limit.js";
 import { logger } from "./logger.js";
 import { handleHttp } from "./http.js";
 import { ArenaRoom } from "./rooms/arena-room.js";
@@ -41,6 +44,11 @@ gameServer.onShutdown(() => {
 });
 
 async function main(): Promise<void> {
+  // optional infrastructure — the game runs memory-only without either
+  const dbOk = await initDb();
+  if (dbOk) startPersistence();
+  await initRedis();
+
   await gameServer.listen(PORT);
   logger.info(
     { event: "server_start", port: PORT, version: SERVER_VERSION },
@@ -57,6 +65,9 @@ async function shutdown(signal: string): Promise<void> {
   } catch (err) {
     logger.error({ err }, "error during graceful shutdown");
   }
+  await stopPersistence(); // final stats drain (spec §73)
+  await closeDb();
+  await closeRedis();
   httpServer.close();
   logger.info({ event: "shutdown_done" }, "bye");
   process.exit(0);

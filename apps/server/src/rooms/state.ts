@@ -1,4 +1,4 @@
-import { MapSchema, Schema, type } from "@colyseus/schema";
+import { MapSchema, Schema, type, view } from "@colyseus/schema";
 
 /** Colyseus-synchronized state. Deliberately COMPACT (spec §29):
  *  only what remote clients need to render — the body is reconstructed
@@ -38,6 +38,7 @@ export class ArenaState extends Schema {
   @type("uint32") tick = 0;
   @type("uint32") worldSize = 0;
   @type({ map: WormSchema }) worms = new MapSchema<WormSchema>();
-  @type({ map: FoodSchema }) food = new MapSchema<FoodSchema>();
+  /** AOI-filtered (ADR-008): each client only receives nearby food entries. */
+  @view() @type({ map: FoodSchema }) food = new MapSchema<FoodSchema>();
   @type({ map: PowerupSchema }) powerups = new MapSchema<PowerupSchema>();
 }

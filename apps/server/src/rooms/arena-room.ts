@@ -1,5 +1,6 @@
 import { Room } from "@colyseus/core";
 import type { Client } from "@colyseus/core";
+import { StateView } from "@colyseus/schema";
 import { NET, ROOM, SIM, WORLD } from "@nibblio/config";
 import { Simulation, activeEffects, createWorm, emptyEvents } from "@nibblio/game-core";
 import type { StepEvents, WormInput } from "@nibblio/game-core";
@@ -10,6 +11,7 @@ import type {
   InputMessage, JoinOptions, LeaderboardMessage, RejectMessage, WelcomeMessage,
 } from "@nibblio/protocol";
 import { createRng, hashString, wrapAngle } from "@nibblio/shared";
+import { InputGuard } from "../anti-cheat.js";
 import { logger } from "../logger.js";
 import { SERVER_VERSION } from "../version.js";
 import { ArenaState, FoodSchema, PowerupSchema, WormSchema } from "./state.js";
@@ -25,6 +27,10 @@ export class ArenaRoom extends Room<ArenaState> {
   private sim!: Simulation;
   private pendingInputs = new Map<string, WormInput>();
   private pendingForceKills: string[] = [];
+  private guards = new Map<string, InputGuard>();
+  /** AOI: currently-visible food ids per client (ADR-008). */
+  private visibleFood = new Map<string, Set<number>>();
+  private aoiQueryBuf: number[] = [];
   private events: StepEvents = emptyEvents();
   private lastLeaderboardAt = 0;
 
@@ -59,7 +65,9 @@ export class ArenaRoom extends Room<ArenaState> {
     }
 
     const nickname = sanitizeNickname(options.nickname ?? "");
+    client.view = new StateView();
     this.spawnWorm(client.sessionId, nickname, options.skinId ?? "s0");
+    this.refreshAoiFor(client); // immediate first snapshot of nearby food
 
     const welcome: WelcomeMessage = {
       playerId: client.sessionId,
@@ -143,6 +151,7 @@ export class ArenaRoom extends Room<ArenaState> {
     }
 
     this.syncSchema();
+    if (this.sim.world.tick % NET.aoiRefreshTicks === 0) this.refreshAoi();
     this.dispatchEvents();
     this.maybeBroadcastLeaderboard();
 
@@ -153,13 +162,12 @@ export class ArenaRoom extends Room<ArenaState> {
   }
 
   private onInput(client: Client, msg: InputMessage): void {
-    // Shape validation — full anti-cheat envelopes land in M3 (§54).
-    if (
-      typeof msg?.seq !== "number" || typeof msg.angle !== "number" ||
-      !Number.isFinite(msg.angle) || typeof msg.boost !== "boolean"
-    ) {
-      return;
+    let guard = this.guards.get(client.sessionId);
+    if (!guard) {
+      guard = new InputGuard();
+      this.guards.set(client.sessionId, guard);
     }
+    if (!guard.check(msg, Date.now()).ok) return; // spec §54: drop, never trust
     this.pendingInputs.set(client.sessionId, {
       seq: msg.seq >>> 0,
       angle: wrapAngle(msg.angle),
@@ -199,6 +207,53 @@ export class ArenaRoom extends Room<ArenaState> {
   private removeWorm(sessionId: string): void {
     this.sim.removeWorm(sessionId);
     this.state.worms.delete(sessionId);
+    this.visibleFood.delete(sessionId);
+    const guard = this.guards.get(sessionId);
+    if (guard && guard.rejected > 0) {
+      logger.warn(
+        { roomId: this.roomId, sessionId, rejectedInputs: guard.rejected, event: "input_rejections" },
+        "player had rejected inputs",
+      );
+    }
+    this.guards.delete(sessionId);
+  }
+
+  // ── interest management (spec §30, ADR-008) ──────────────────────────────
+
+  private refreshAoi(): void {
+    for (const client of this.clients) this.refreshAoiFor(client);
+  }
+
+  /** Diff the client's visible-food set against a spatial query around its
+   *  worm; add/remove StateView membership accordingly. Worms and powerups
+   *  sync globally (≤40/≤24 entries — bandwidth-trivial, leaderboard-friendly). */
+  private refreshAoiFor(client: Client): void {
+    const view = client.view;
+    const worm = this.sim.world.worms.get(client.sessionId);
+    if (!view || !worm) return;
+    let seen = this.visibleFood.get(client.sessionId);
+    if (!seen) {
+      seen = new Set();
+      this.visibleFood.set(client.sessionId, seen);
+    }
+
+    this.sim.queryFood(worm.x, worm.y, NET.aoiFoodRadius, this.aoiQueryBuf);
+    const next = new Set(this.aoiQueryBuf);
+
+    for (const id of next) {
+      if (seen.has(id)) continue;
+      const fs = this.state.food.get(String(id));
+      if (fs) {
+        view.add(fs);
+        seen.add(id);
+      }
+    }
+    for (const id of seen) {
+      if (next.has(id)) continue;
+      const fs = this.state.food.get(String(id));
+      if (fs) view.remove(fs);
+      seen.delete(id);
+    }
   }
 
   // ── sync & events ─────────────────────────────────────────────────────────

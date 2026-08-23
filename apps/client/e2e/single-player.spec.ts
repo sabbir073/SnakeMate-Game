@@ -27,8 +27,12 @@ test.describe("single client", () => {
 
   test("collects food and grows (score + mass increase)", async ({ page }) => {
     await joinArena(page, "Muncher");
+    // AOI food streams in as the room fills — wait for the first nearby pellets
+    await page.waitForFunction(() => {
+      const p = (window as unknown as { __nibblio?: { foodCount: number } }).__nibblio;
+      return (p?.foodCount ?? 0) > 0;
+    }, { timeout: 10_000 });
     const start = await probe(page);
-    expect(start.foodCount).toBeGreaterThan(0); // food synced from server
 
     // cruise in a few directions; ambient food density guarantees pickups
     const headings: Array<[number, number]> = [

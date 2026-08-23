@@ -36,6 +36,11 @@ export class Simulation {
     this.rng = rng;
   }
 
+  /** Broad-phase food id query for AOI/interest management (ids, unsorted). */
+  queryFood(x: number, y: number, radius: number, out: number[]): number[] {
+    return this.foodHash.queryRadius(x, y, radius, out);
+  }
+
   get targetAmbientFood(): number {
     const area = this.world.worldSize * this.world.worldSize;
     return Math.min(FOOD_RULES.maxAmbient, Math.round((area / 1e6) * FOOD_RULES.densityPer1e6));

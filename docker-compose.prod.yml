@@ -1,0 +1,17 @@
+# Production overlay (spec §62–67):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Requires .env with: SITE_ADDRESS=yourdomain.com, POSTGRES_PASSWORD=…,
+# SESSION_SECRET=… (openssl rand -hex 32). Caddy provisions TLS automatically.
+services:
+  web:
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS to your domain in .env}
+
+  game-server:
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}

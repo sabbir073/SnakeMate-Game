@@ -1,0 +1,45 @@
+# Nibblio reverse proxy (spec §64).
+# SITE_ADDRESS=":80" (default) for local/behind-LB; SITE_ADDRESS="example.com"
+# in production → Caddy provisions Let's Encrypt automatically (spec §67).
+
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	# security headers (relaxed CSP: Phaser needs blob/wasm/data)
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	# realtime + matchmaking: client connects to {origin}/ws
+	handle_path /ws/* {
+		reverse_proxy game-server:2567
+	}
+
+	# health/diagnostics pass-through
+	handle /health {
+		reverse_proxy game-server:2567
+	}
+	handle /ready {
+		reverse_proxy game-server:2567
+	}
+	handle /version {
+		reverse_proxy game-server:2567
+	}
+	handle /api/* {
+		reverse_proxy game-server:2567
+	}
+
+	# static client (hashed assets cache aggressively — spec §85)
+	handle {
+		root * /srv
+		@hashed path_regexp hashed \.(js|css|png|jpg|webp|avif|mp3|woff2?|ttf)$
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		header /index.html Cache-Control "no-cache"
+		header /assets-manifest.json Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}

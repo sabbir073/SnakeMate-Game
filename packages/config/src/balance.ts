@@ -22,6 +22,10 @@ export const NET = {
   reconnectGraceSec: 20,
   /** AOI cell size (wu) for interest management (M3). */
   aoiCellSize: 1600,
+  /** Food visibility radius per client (wu) — covers a 4K viewport at min zoom. */
+  aoiFoodRadius: 2400,
+  /** AOI membership refresh interval, in sim ticks (6 = 10 Hz). */
+  aoiRefreshTicks: 6,
   /** Network quality thresholds (ms RTT / ms jitter). */
   quality: {
     excellent: { ping: 80, jitter: 20 },

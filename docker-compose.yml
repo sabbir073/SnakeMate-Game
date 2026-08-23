@@ -1,0 +1,76 @@
+# Nibblio full stack (spec §60). Local development/testing:
+#   docker compose up -d --build     → game at http://localhost:8080
+# Production overlay adds real ports/TLS: see docker-compose.prod.yml.
+name: nibblio
+
+services:
+  game-server:
+    build:
+      context: .
+      dockerfile: docker/server.Dockerfile
+    init: true
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "2567"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: postgres://nibblio:${POSTGRES_PASSWORD:-nibblio_dev_password}@postgres:5432/nibblio
+      REDIS_URL: redis://redis:6379
+      SESSION_SECRET: ${SESSION_SECRET:-change_me_dev_only}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # internal only — the proxy is the single public entry (spec §66)
+    expose:
+      - "2567"
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    ports:
+      - "${WEB_HTTP_PORT:-8080}:80"
+    depends_on:
+      - game-server
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nibblio
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nibblio_dev_password}
+      POSTGRES_DB: nibblio
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nibblio -d nibblio"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # never published publicly (spec §66)
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pg-data:
+  redis-data:
+  caddy-data:
+  caddy-config:

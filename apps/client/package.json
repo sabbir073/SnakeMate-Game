@@ -1,0 +1,30 @@
+{
+  "name": "@nibblio/client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "test:e2e": "playwright test",
+    "lint": "echo lint: client ok"
+  },
+  "dependencies": {
+    "@nibblio/asset-types": "workspace:*",
+    "@nibblio/config": "workspace:*",
+    "@nibblio/game-core": "workspace:*",
+    "@nibblio/protocol": "workspace:*",
+    "@nibblio/shared": "workspace:*",
+    "colyseus.js": "^0.16.0",
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.0.0",
+    "vitest": "^3.2.0"
+  }
+}

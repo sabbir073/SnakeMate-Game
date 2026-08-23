@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#12082b" />
+    <meta name="description" content="Nibblio — eat, grow, outslither everyone. Free browser multiplayer worm arena." />
+    <title>Nibblio — multiplayer worm arena</title>
+    <style>
+      /* Minimal critical CSS — the full UI system arrives with the design system (M2). */
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 100%; height: 100%;
+        background: #12082b;
+        overflow: hidden;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        touch-action: none;
+        -webkit-user-select: none; user-select: none;
+      }
+      #app { width: 100%; height: 100%; position: relative; }
+      #game { width: 100%; height: 100%; }
+
+      /* Home overlay */
+      #home {
+        position: absolute; inset: 0; z-index: 10;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 18px;
+        background: radial-gradient(ellipse at 50% 30%, #2a1458 0%, #12082b 70%);
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      }
+      #home.hidden { display: none; }
+      .logo-title {
+        font-size: clamp(40px, 9vw, 84px);
+        font-weight: 900;
+        letter-spacing: 0.01em;
+        background: linear-gradient(180deg, #ffd166 0%, #ff7b54 55%, #e84393 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+        filter: drop-shadow(0 3px 0 rgba(0,0,0,0.35));
+      }
+      .tagline { color: #b9a7e6; font-size: clamp(13px, 2.4vw, 17px); margin-top: -10px; }
+      #nickname {
+        width: min(320px, 78vw);
+        padding: 14px 18px;
+        font-size: 17px;
+        border-radius: 14px;
+        border: 2px solid #4a2f8f;
+        background: #1d0f42; color: #fff;
+        outline: none; text-align: center;
+      }
+      #nickname:focus { border-color: #8b5cf6; }
+      #play {
+        width: min(320px, 78vw);
+        padding: 15px 18px;
+        font-size: 20px; font-weight: 800; letter-spacing: 0.06em;
+        border-radius: 14px; border: 0; cursor: pointer;
+        color: #2b1a00;
+        background: linear-gradient(180deg, #ffe08a 0%, #ffb545 100%);
+        box-shadow: 0 4px 0 #b57718, 0 8px 22px rgba(0,0,0,0.35);
+        transition: transform 0.06s ease;
+      }
+      #play:active { transform: translateY(3px); box-shadow: 0 1px 0 #b57718; }
+      #play:disabled { opacity: 0.6; cursor: default; }
+      #status { color: #8f7cc9; font-size: 14px; min-height: 20px; }
+      .version { position: absolute; bottom: 10px; right: 14px; color: #55428a; font-size: 11px; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="game"></div>
+      <div id="home">
+        <div class="logo-title" id="logo-title">NIBBLIO</div>
+        <div class="tagline" id="tagline">Eat. Grow. Outslither everyone.</div>
+        <input id="nickname" maxlength="16" placeholder="Your nickname" autocomplete="off" spellcheck="false" />
+        <button id="play">PLAY</button>
+        <div id="status" role="status"></div>
+        <div class="version" id="version"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

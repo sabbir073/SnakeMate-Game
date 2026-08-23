@@ -1,0 +1,38 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# builds
+dist/
+build/
+*.tsbuildinfo
+
+# environment / secrets — never commit real env files
+.env
+.env.*
+!.env.example
+
+# logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# test output
+coverage/
+playwright-report/
+test-results/
+tools/profiling/output/
+
+# generated asset intermediates (masters + manifests ARE committed)
+assets/processed/tmp/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# docker
+docker/volumes/

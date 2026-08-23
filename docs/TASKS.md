@@ -66,7 +66,7 @@ check), never merely because code exists. See CLAUDE.md.
 - [x] Backups, log rotation, monitoring config
 - [x] Staging compose variant
 - [x] Deploy + rollback runbooks
-- [ ] Verified on user's PC: compose up → health green → two browsers play via Caddy
+- [x] Verified on user's PC: compose up → all containers healthy → ws-smoke (matchmaking+WS+handshake) through Caddy → PWA/legal pages served → bot matches persisting to containerized Postgres
 
 ## Milestone M5 — VPS release (phases 30–32)
 

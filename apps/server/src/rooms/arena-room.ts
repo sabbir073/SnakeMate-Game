@@ -12,7 +12,7 @@ import type {
 } from "@nibblio/protocol";
 import { createRng, hashString, wrapAngle } from "@nibblio/shared";
 import { AI } from "@nibblio/config";
-import { AiBrain, BOT_NAMES, shouldRunBots } from "./ai.js";
+import { AiBrain, randomBotName, shouldRunBots } from "./ai.js";
 import { InputGuard } from "../anti-cheat.js";
 import { logger } from "../logger.js";
 import { queueMatchResult, touchGuestProfile } from "../db/persistence.js";
@@ -37,6 +37,8 @@ export class ArenaRoom extends Room<ArenaState> {
   private botsEnabled = false;
   private bots = new Map<string, { brain: AiBrain; respawnAtTick: number; name: string; skin: string }>();
   private nextBotSerial = 0;
+  private nextBotSpawnTick = 0;
+  private nextBotRotateTick = 0;
   /** Persistent identity + per-session gameplay accumulators (spec §91). */
   private guestIds = new Map<string, string>();
   private sessionStats = new Map<string, {
@@ -246,30 +248,29 @@ export class ArenaRoom extends Room<ArenaState> {
   private runBots(): void {
     const tick = this.sim.world.tick;
 
-    // population management (1 Hz): fill to the floor, yield seats to humans
-    if (tick % 60 === 0) {
-      const humans = this.clients.length;
-      const desired = Math.max(0, Math.min(AI.maxBots, AI.minPopulation - humans));
-
-      while (this.bots.size < desired) this.addBot();
-
-      if (this.bots.size > desired) {
-        // retire the lowest-score living bot naturally (dies, drops loot)
-        let excess = this.bots.size - desired;
-        const living = [...this.bots.keys()]
-          .map((id) => this.sim.world.worms.get(id))
-          .filter((w) => w?.alive)
-          .sort((a, b) => (a!.score - b!.score));
-        for (const w of living) {
-          if (excess <= 0) break;
-          this.pendingForceKills.push(w!.id);
-          this.bots.delete(w!.id);
-          excess--;
+    if (this.bots.size < AI.maxBots) {
+      // fill phase: bots trickle in one at a time — never all at once
+      if (tick >= this.nextBotSpawnTick) {
+        this.addBot();
+        this.nextBotSpawnTick = tick + Math.round(AI.spawnStaggerSec * SIM.tickRate);
+        if (this.bots.size >= AI.maxBots) {
+          this.nextBotRotateTick = tick + Math.round(AI.rotateIntervalSec * SIM.tickRate);
         }
       }
+    } else if (tick >= this.nextBotRotateTick) {
+      // rotation phase: every interval the longest-lived bot dies (1→50,
+      // forever), drops its loot, and the fill phase replaces it with a
+      // brand-new identity — the roster keeps cycling like real churn.
+      for (const [botId] of this.bots) {
+        const worm = this.sim.world.worms.get(botId);
+        if (worm?.alive) this.pendingForceKills.push(botId);
+        this.bots.delete(botId);
+        break; // oldest only (Map preserves insertion order)
+      }
+      this.nextBotRotateTick = tick + Math.round(AI.rotateIntervalSec * SIM.tickRate);
     }
 
-    // thinking + respawns
+    // thinking + respawns (a respawned bot rejoins as a new random identity)
     for (const [botId, bot] of this.bots) {
       const worm = this.sim.world.worms.get(botId);
       if (!worm || !worm.alive) {
@@ -277,6 +278,8 @@ export class ArenaRoom extends Room<ArenaState> {
           bot.respawnAtTick = tick + Math.round(AI.respawnDelaySec * SIM.tickRate);
         } else if (tick >= bot.respawnAtTick) {
           bot.respawnAtTick = 0;
+          bot.name = randomBotName();
+          bot.skin = `s${Math.floor(Math.random() * 6)}`;
           this.spawnWorm(botId, bot.name, bot.skin);
         }
         continue;
@@ -291,8 +294,8 @@ export class ArenaRoom extends Room<ArenaState> {
   private addBot(): void {
     const serial = this.nextBotSerial++;
     const botId = `bot:${this.roomId}:${serial}`;
-    const name = BOT_NAMES[serial % BOT_NAMES.length] ?? "Wormy";
-    const skin = `s${serial % 6}`;
+    const name = randomBotName();
+    const skin = `s${Math.floor(Math.random() * 6)}`;
     this.bots.set(botId, {
       brain: new AiBrain(botId, hashString(botId)),
       respawnAtTick: 0,

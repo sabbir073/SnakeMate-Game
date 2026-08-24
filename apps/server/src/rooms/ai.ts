@@ -8,11 +8,40 @@ import type { Rng } from "@nibblio/shared";
  *  lockstep. Bots read the same sim the humans play in; their inputs go
  *  through the identical pendingInputs path as human intentions. */
 
-export const BOT_NAMES = [
-  "Chompy", "Wiggles", "Sir Slither", "Noodle", "Munchkin", "Gulpy",
-  "Twisty", "Sprinkles", "Doodle", "Snacky", "Loopy", "Nibbles",
-  "Squirmy", "Bonbon", "Waffles", "Zigzag",
-] as const;
+/** Random, human-feeling nicknames — a fresh one every spawn (never a fixed
+ *  roster). Three shapes keep the lobby varied: word+word, syllable mash, and
+ *  word+number, mimicking how real players actually name themselves. */
+const NAME_FIRST = [
+  "Shadow", "Turbo", "Mega", "Neon", "Pixel", "Cosmic", "Lucky", "Sneaky",
+  "Fuzzy", "Crazy", "Silent", "Golden", "Frost", "Blaze", "Storm", "Hyper",
+  "Ninja", "Royal", "Wild", "Zen", "Retro", "Astro", "Candy", "Dark",
+  "Epic", "Iron", "Jelly", "Mystic", "Nova", "Omega",
+];
+const NAME_SECOND = [
+  "Worm", "Viper", "Racer", "Hunter", "King", "Queen", "Star", "Fang",
+  "Loop", "Dash", "Byte", "Rider", "Wolf", "Fox", "Ghost", "Panda",
+  "Comet", "Blade", "Muncher", "Noodle", "Slider", "Beast", "Chomp", "Zoom",
+];
+const NAME_SYLLA = ["zi", "ka", "mo", "lu", "ren", "ta", "vex", "bo", "nix", "sha", "fu", "dra", "pip", "gro", "mi", "zor"];
+
+export function randomBotName(): string {
+  const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
+  const style = Math.random();
+  if (style < 0.45) {
+    // ShadowViper / LuckyNoodle
+    return `${pick(NAME_FIRST)}${pick(NAME_SECOND)}`;
+  }
+  if (style < 0.7) {
+    // Kamoren / Vexsha — capitalized syllable mash
+    const n = 2 + Math.floor(Math.random() * 2);
+    let s = "";
+    for (let i = 0; i < n; i++) s += pick(NAME_SYLLA);
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  // TurboFox77 / NovaKing123
+  const num = Math.floor(Math.random() * 990) + 10;
+  return `${pick(NAME_FIRST)}${pick(NAME_SECOND)}${num}`;
+}
 
 export function shouldRunBots(channel: string): boolean {
   return (AI.channels as readonly string[]).includes(channel) ||

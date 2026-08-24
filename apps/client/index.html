@@ -162,7 +162,11 @@
       }
       #toast.visible { opacity: 1; }
       #global-lb {
-        width: min(320px, 78vw);
+        /* side panel — pinned to the right edge, out of the play flow */
+        position: absolute;
+        right: max(22px, env(safe-area-inset-right));
+        top: 50%; transform: translateY(-50%);
+        width: min(280px, 26vw);
         background: rgba(29, 15, 66, 0.65);
         border: 1px solid #3a2477; border-radius: 14px;
         padding: 10px 16px; font-size: 13px; color: #cfc4ea;
@@ -175,7 +179,15 @@
       }
       #global-lb ol { list-style: none; }
       #global-lb li { display: flex; justify-content: space-between; gap: 10px; line-height: 1.6; }
+      #global-lb li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       #global-lb li span:last-child { color: #ffd166; font-weight: 700; }
+      @media (max-width: 900px) {
+        /* narrow screens: fall back into the column, below PLAY */
+        #global-lb {
+          position: static; transform: none;
+          width: min(320px, 78vw);
+        }
+      }
       #minimap {
         position: absolute;
         right: max(14px, env(safe-area-inset-right));
@@ -186,40 +198,7 @@
       }
       @media (pointer: coarse) {
         /* keep clear of the boost button on touch devices */
-        #invite-btn {
-        position: absolute;
-        right: max(14px, env(safe-area-inset-right));
-        top: calc(max(12px, env(safe-area-inset-top)) + 118px);
-        background: rgba(29, 15, 66, 0.85); color: #ffd166;
-        border: 1px solid #3a2477; border-radius: 10px;
-        padding: 6px 12px; font-size: 12px; font-weight: 700;
-        font-family: inherit; cursor: pointer; pointer-events: auto;
-      }
-      #toast {
-        position: absolute; left: 50%; transform: translateX(-50%);
-        bottom: 90px; z-index: 35;
-        background: rgba(29, 15, 66, 0.95); color: #fff;
-        border: 1px solid #8b5cf6; border-radius: 999px;
-        padding: 9px 20px; font-size: 14px;
-        opacity: 0; transition: opacity 0.25s ease; pointer-events: none;
-      }
-      #toast.visible { opacity: 1; }
-      #global-lb {
-        width: min(320px, 78vw);
-        background: rgba(29, 15, 66, 0.65);
-        border: 1px solid #3a2477; border-radius: 14px;
-        padding: 10px 16px; font-size: 13px; color: #cfc4ea;
-        display: none;
-      }
-      #global-lb.visible { display: block; }
-      #global-lb h3 {
-        font-size: 11px; letter-spacing: 0.12em; color: #ffd166;
-        margin-bottom: 6px; font-weight: 800; text-align: center;
-      }
-      #global-lb ol { list-style: none; }
-      #global-lb li { display: flex; justify-content: space-between; gap: 10px; line-height: 1.6; }
-      #global-lb li span:last-child { color: #ffd166; font-weight: 700; }
-      #minimap { bottom: 132px; width: 118px; height: 118px; }
+        #minimap { bottom: 132px; width: 118px; height: 118px; }
       }
       .effect-chip {
         background: rgba(124, 58, 237, 0.85);
@@ -297,9 +276,9 @@
         <div class="tagline" id="tagline">Eat. Grow. Outslither everyone.</div>
         <input id="nickname" maxlength="16" placeholder="Your nickname" autocomplete="off" spellcheck="false" />
         <div id="skins" role="radiogroup" aria-label="Choose your worm skin"></div>
-        <div id="global-lb"><h3>🏆 GLOBAL TOP 10</h3><ol id="global-lb-list"></ol></div>
         <button id="play">PLAY</button>
         <div id="status" role="status"></div>
+        <div id="global-lb"><h3>🏆 GLOBAL TOP 10</h3><ol id="global-lb-list"></ol></div>
         <button class="gear-btn" id="settings-btn-home" aria-label="Settings" style="position:absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right));">⚙</button>
         <div class="footer-links">
           <a href="/legal/about.html">How to play</a>

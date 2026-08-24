@@ -51,10 +51,14 @@ export const WORM = {
   boostMultiplier: 1.8,
   /** Max turn rate at minimum mass (rad/s). */
   turnRateMax: 4.4,
-  /** Turn rate floor for huge worms (rad/s). */
-  turnRateMin: 1.6,
-  /** Mass at which turn rate reaches its floor. */
-  turnRateMassRef: 500,
+  /** Turn rate floor for huge worms (rad/s). Tuned so a big worm's tightest
+   *  coil (baseSpeed / floor ≈ 67 wu) squeezes BELOW the circle a trapped
+   *  small worm needs to keep dodging (≈ 55 wu + clearance) — encircled prey
+   *  slowly runs out of room and dies, wormate-style. At 1.6 the coil
+   *  bottomed out at ≈ 112 wu and trapped worms could orbit inside forever. */
+  turnRateMin: 2.7,
+  /** Mass at which turn rate reaches its floor (gentler ramp = smoother). */
+  turnRateMassRef: 1000,
   /** Starting mass. */
   spawnMass: 10,
   /** Minimum mass — boost can never shrink below this. */
@@ -178,11 +182,14 @@ export const CAMERA = {
 
 /** Resident AI worms (server-side) — public arenas never feel empty. */
 export const AI = {
-  /** Keep humans + bots at least this many worms in a public room. */
-  minPopulation: 8,
-  /** Never run more than this many bots per room. */
-  maxBots: 8,
-  /** Seconds before a dead bot respawns. */
+  /** Bot population target per room. */
+  maxBots: 50,
+  /** Seconds between staggered bot arrivals while filling up (never all at once). */
+  spawnStaggerSec: 2.5,
+  /** Once full: every N seconds the longest-lived bot dies (1→50 rotation)
+   *  and a fresh one trickles in, so the roster keeps cycling. */
+  rotateIntervalSec: 30,
+  /** Seconds before a naturally-killed bot rejoins (as a brand-new identity). */
   respawnDelaySec: 2.5,
   /** Bots think every N sim ticks (10 Hz at N=6). */
   thinkEveryTicks: 6,

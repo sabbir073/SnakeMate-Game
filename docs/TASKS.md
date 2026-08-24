@@ -73,6 +73,7 @@ check), never merely because code exists. See CLAUDE.md.
 - [x] Round 1: render interpolation (judder), browser-zoom fairness + guards, wormate-style food/effect art, ZOOM powerup
 - [x] Round 2: input-rate blackout fix (the real ~1s bump), premium art v2, cache-correct asset URLs
 - [x] Round 3: PathTracker tail fix (coiling), resident AI bots playing + ranked, world 18000, square minimap, invite links (?join), global top-10 on home — 23/23 E2E, quality gate green
+- [x] Round 4: staggered 50-bot population with 30s oldest-dies rotation, random bot names every spawn, encircle-squeeze physics (turn floor 2.7) + 2 regression tests, global top-10 as right-side panel — 32 unit + 23 E2E green, quality gate green
 
 ## Milestone M5 — VPS release (phases 30–32)
 

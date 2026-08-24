@@ -5,8 +5,9 @@ test.describe("motion quality & zoom fairness", () => {
   test("local worm renders without periodic judder", async ({ page }) => {
     await joinArena(page, "SmoothCheck");
     // steer toward the world center so the wall can't interrupt the sample
-    const p0 = await probe(page);
-    await page.mouse.move(p0.x < 5000 ? 1100 : 180, p0.y < 5000 ? 620 : 100);
+    const p0 = await probe(page) as unknown as { x: number; y: number; worldSize: number };
+    const half = (p0.worldSize || 18000) / 2;
+    await page.mouse.move(p0.x < half ? 1100 : 180, p0.y < half ? 620 : 100);
     await page.waitForTimeout(1500);
 
     // sample the RENDERED position every animation frame for ~2s

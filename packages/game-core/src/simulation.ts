@@ -334,8 +334,10 @@ export class Simulation {
   private replenishFood(events: StepEvents): void {
     const target = this.targetAmbientFood;
     let deficit = target - this.world.food.size;
+    // fast initial fill (fresh/half-empty room), gentle trickle afterwards
+    const perTick = deficit > target / 2 ? 200 : this.spawnPerTick;
     let spawned = 0;
-    while (deficit > 0 && spawned < this.spawnPerTick) {
+    while (deficit > 0 && spawned < perTick) {
       const kind = AMBIENT_KINDS[this.rng.weighted(AMBIENT_WEIGHTS)] ?? "COMMON";
       const x = this.rng.range(0, this.world.worldSize);
       const y = this.rng.range(0, this.world.worldSize);

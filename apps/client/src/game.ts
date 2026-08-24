@@ -101,6 +101,8 @@ class ArenaScene extends Phaser.Scene {
   private fpsFrames = 0;
   private fps = 60;
   private massZoomEased = CAMERA.baseZoom;
+  private minimapCtx: CanvasRenderingContext2D | null = null;
+  private minimapFrame = 0;
   private inputSeq = 0;
   private boostHeld = false;
   private localAlive = true;
@@ -153,6 +155,22 @@ class ArenaScene extends Phaser.Scene {
     if (isTouchDevice()) this.mobile = new MobileControls();
     this.debug = new DebugPanel();
     this.startPing();
+
+    // minimap (wormate-style square map with your position)
+    const mapCanvas = document.getElementById("minimap") as HTMLCanvasElement | null;
+    this.minimapCtx = mapCanvas?.getContext("2d") ?? null;
+
+    // invite link: lands friends in THIS exact room
+    const inviteBtn = document.getElementById("invite-btn");
+    inviteBtn?.addEventListener("click", () => {
+      const link = `${location.origin}/?join=${this.conn.room.roomId}`;
+      const done = (): void => this.showToast("Invite link copied — send it to a friend!");
+      navigator.clipboard?.writeText(link).then(done).catch(() => {
+        // clipboard blocked — show the link so it can be copied manually
+        this.showToast(link);
+      });
+      this.audio.play("ui-click");
+    });
 
     this.wireState();
     this.wireMessages();
@@ -390,6 +408,7 @@ class ArenaScene extends Phaser.Scene {
     this.renderRemotes();
     this.renderFood();
     this.renderPowerups();
+    this.drawMinimap();
     this.updateCamera(dt);
     this.hud.setScore(this.localScore, this.localMassView);
     this.hud.setEffects(this.localEffects);
@@ -430,6 +449,8 @@ class ArenaScene extends Phaser.Scene {
       predictionError: this.predictor.lastErrorMagnitude,
       pendingInputs: this.predictor.pendingCount,
       pingMs: this.pingMs,
+      worldSize: this.conn.welcome.worldSize,
+      roomId: this.conn.room.roomId,
       x: this.predictor.worm.x,
       y: this.predictor.worm.y,
       renderX: this.predictor.renderPose().x,
@@ -608,6 +629,70 @@ class ArenaScene extends Phaser.Scene {
       used++;
     }
     for (let i = used; i < this.powerupPool.length; i++) this.powerupPool[i]!.setVisible(false);
+  }
+
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private showToast(text: string): void {
+    const toast = document.getElementById("toast");
+    if (!toast) return;
+    toast.textContent = text;
+    toast.classList.add("visible");
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => toast.classList.remove("visible"), 2600);
+  }
+
+  /** Square arena map with the player's live position (5 Hz). */
+  private drawMinimap(): void {
+    const ctx = this.minimapCtx;
+    if (!ctx) return;
+    if ((this.minimapFrame++ & 11) !== 0) return;
+    const canvas = ctx.canvas;
+    const w = canvas.width;
+    const worldSize = this.conn.welcome.worldSize;
+    const pad = 8;
+    const scale = (w - pad * 2) / worldSize;
+
+    ctx.clearRect(0, 0, w, w);
+    // arena bounds
+    ctx.strokeStyle = "rgba(232, 67, 147, 0.85)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(pad, pad, worldSize * scale, worldSize * scale);
+    // subtle grid cross
+    ctx.strokeStyle = "rgba(139, 92, 246, 0.25)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad + (worldSize * scale) / 2, pad);
+    ctx.lineTo(pad + (worldSize * scale) / 2, pad + worldSize * scale);
+    ctx.moveTo(pad, pad + (worldSize * scale) / 2);
+    ctx.lineTo(pad + worldSize * scale, pad + (worldSize * scale) / 2);
+    ctx.stroke();
+
+    // other worms: tiny neutral dots
+    for (const entry of this.remotes.values()) {
+      const p = entry.buffer.sample(performance.now());
+      if (!p || !p.alive) continue;
+      ctx.fillStyle = "rgba(185, 167, 230, 0.7)";
+      ctx.beginPath();
+      ctx.arc(pad + p.x * scale, pad + p.y * scale, 1.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // you: gold dot with glow ring
+    if (this.localAlive) {
+      const pose = this.predictor.renderPose();
+      const px = pad + pose.x * scale;
+      const py = pad + pose.y * scale;
+      ctx.fillStyle = "#FFD166";
+      ctx.beginPath();
+      ctx.arc(px, py, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255, 209, 102, 0.5)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(px, py, 5.8, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   }
 
   private updateCamera(dt: number): void {

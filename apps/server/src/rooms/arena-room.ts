@@ -11,6 +11,8 @@ import type {
   InputMessage, JoinOptions, LeaderboardMessage, RejectMessage, WelcomeMessage,
 } from "@nibblio/protocol";
 import { createRng, hashString, wrapAngle } from "@nibblio/shared";
+import { AI } from "@nibblio/config";
+import { AiBrain, BOT_NAMES, shouldRunBots } from "./ai.js";
 import { InputGuard } from "../anti-cheat.js";
 import { logger } from "../logger.js";
 import { queueMatchResult, touchGuestProfile } from "../db/persistence.js";
@@ -31,6 +33,10 @@ export class ArenaRoom extends Room<ArenaState> {
   private pendingInputs = new Map<string, WormInput>();
   private pendingForceKills: string[] = [];
   private guards = new Map<string, InputGuard>();
+  /** Resident AI worms (bots-as-players): brain + respawn schedule. */
+  private botsEnabled = false;
+  private bots = new Map<string, { brain: AiBrain; respawnAtTick: number; name: string; skin: string }>();
+  private nextBotSerial = 0;
   /** Persistent identity + per-session gameplay accumulators (spec §91). */
   private guestIds = new Map<string, string>();
   private sessionStats = new Map<string, {
@@ -52,8 +58,9 @@ export class ArenaRoom extends Room<ArenaState> {
   private rollAvgMs = 0;
   private rollMaxMs = 0;
 
-  override onCreate(): void {
+  override onCreate(options?: JoinOptions): void {
     this.state = new ArenaState();
+    this.botsEnabled = shouldRunBots(options?.channel ?? "main");
     this.sim = new Simulation(createRng(hashString(this.roomId)), WORLD.size);
     this.state.worldSize = this.sim.world.worldSize;
 
@@ -182,6 +189,8 @@ export class ArenaRoom extends Room<ArenaState> {
   private simTick(): void {
     const t0 = performance.now();
 
+    if (this.botsEnabled) this.runBots();
+
     this.events = emptyEvents();
     this.sim.step(this.pendingInputs, this.events);
     this.pendingInputs.clear();
@@ -230,6 +239,68 @@ export class ArenaRoom extends Room<ArenaState> {
       angle: wrapAngle(msg.angle),
       boost: msg.boost,
     });
+  }
+
+  // ── resident AI worms (bots play as real users) ──────────────────────────
+
+  private runBots(): void {
+    const tick = this.sim.world.tick;
+
+    // population management (1 Hz): fill to the floor, yield seats to humans
+    if (tick % 60 === 0) {
+      const humans = this.clients.length;
+      const desired = Math.max(0, Math.min(AI.maxBots, AI.minPopulation - humans));
+
+      while (this.bots.size < desired) this.addBot();
+
+      if (this.bots.size > desired) {
+        // retire the lowest-score living bot naturally (dies, drops loot)
+        let excess = this.bots.size - desired;
+        const living = [...this.bots.keys()]
+          .map((id) => this.sim.world.worms.get(id))
+          .filter((w) => w?.alive)
+          .sort((a, b) => (a!.score - b!.score));
+        for (const w of living) {
+          if (excess <= 0) break;
+          this.pendingForceKills.push(w!.id);
+          this.bots.delete(w!.id);
+          excess--;
+        }
+      }
+    }
+
+    // thinking + respawns
+    for (const [botId, bot] of this.bots) {
+      const worm = this.sim.world.worms.get(botId);
+      if (!worm || !worm.alive) {
+        if (bot.respawnAtTick === 0) {
+          bot.respawnAtTick = tick + Math.round(AI.respawnDelaySec * SIM.tickRate);
+        } else if (tick >= bot.respawnAtTick) {
+          bot.respawnAtTick = 0;
+          this.spawnWorm(botId, bot.name, bot.skin);
+        }
+        continue;
+      }
+      if (tick % AI.thinkEveryTicks === 0) {
+        const input = bot.brain.think(this.sim);
+        if (input) this.pendingInputs.set(botId, input);
+      }
+    }
+  }
+
+  private addBot(): void {
+    const serial = this.nextBotSerial++;
+    const botId = `bot:${this.roomId}:${serial}`;
+    const name = BOT_NAMES[serial % BOT_NAMES.length] ?? "Wormy";
+    const skin = `s${serial % 6}`;
+    this.bots.set(botId, {
+      brain: new AiBrain(botId, hashString(botId)),
+      respawnAtTick: 0,
+      name,
+      skin,
+    });
+    this.spawnWorm(botId, name, skin);
+    logger.info({ roomId: this.roomId, botId, name, event: "bot_spawn" }, "bot joined arena");
   }
 
   // ── worm lifecycle ────────────────────────────────────────────────────────

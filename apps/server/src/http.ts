@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { PROTOCOL_VERSION } from "@nibblio/protocol";
+import { dbAvailable, getPool } from "./db/index.js";
 import { logger } from "./logger.js";
 import { snapshotMetrics } from "./metrics.js";
 import { rateLimit } from "./rate-limit.js";
@@ -11,6 +12,36 @@ export interface HealthProviders {
   playersOnline(): number;
   /** Readiness flag — false while draining for shutdown (spec §59/§73). */
   isReady(): boolean;
+}
+
+// global top-10 (humans only — bots never persist), cached 30 s
+interface GlobalEntry { name: string; score: number; skin: string }
+let lbCache: { at: number; entries: GlobalEntry[] } = { at: 0, entries: [] };
+
+async function globalLeaderboard(): Promise<GlobalEntry[]> {
+  const now = Date.now();
+  if (now - lbCache.at < 30_000) return lbCache.entries;
+  lbCache = { at: now, entries: [] };
+  const pool = getPool();
+  if (!dbAvailable() || !pool) return lbCache.entries;
+  try {
+    const res = await pool.query(
+      `SELECT g.nickname AS name, s.best_score AS score, g.selected_skin AS skin
+       FROM player_statistics s
+       JOIN guest_profiles g ON g.guest_id = s.guest_id
+       WHERE s.best_score > 0
+       ORDER BY s.best_score DESC
+       LIMIT 10`,
+    );
+    lbCache.entries = res.rows.map((r: { name: string; score: string | number; skin: string }) => ({
+      name: String(r.name).slice(0, 16),
+      score: Number(r.score),
+      skin: String(r.skin),
+    }));
+  } catch (err) {
+    logger.warn({ err: (err as Error).message, event: "global_lb_failed" }, "leaderboard query failed");
+  }
+  return lbCache.entries;
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {
@@ -56,6 +87,10 @@ export function handleHttp(
 
     case "/metrics":
       json(res, 200, snapshotMetrics());
+      return true;
+
+    case "/api/leaderboard":
+      void globalLeaderboard().then((entries) => json(res, 200, { entries }));
       return true;
 
     case "/api/client-error": {

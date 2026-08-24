@@ -44,7 +44,23 @@ export async function connect(nickname: string, skinId = "s0"): Promise<Connecti
   const options: JoinOptions = {
     protocolVersion: PROTOCOL_VERSION, nickname, skinId, channel, guestId,
   };
-  const room = await client.joinOrCreate(ARENA_ROOM, options);
+
+  // invite links: ?join=<roomId> lands friends in the SAME room; falls back
+  // to normal matchmaking when the room is gone or full
+  let joinRoomId = "";
+  try {
+    joinRoomId = new URLSearchParams(location.search).get("join") ?? "";
+  } catch { /* non-browser */ }
+  let room;
+  if (joinRoomId) {
+    try {
+      room = await client.joinById(joinRoomId, options);
+    } catch {
+      room = await client.joinOrCreate(ARENA_ROOM, options);
+    }
+  } else {
+    room = await client.joinOrCreate(ARENA_ROOM, options);
+  }
 
   const welcome = await new Promise<WelcomeMessage>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("welcome timeout")), 8000);

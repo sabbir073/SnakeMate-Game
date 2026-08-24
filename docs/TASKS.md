@@ -68,6 +68,12 @@ check), never merely because code exists. See CLAUDE.md.
 - [x] Deploy + rollback runbooks
 - [x] Verified on user's PC: compose up → all containers healthy → ws-smoke (matchmaking+WS+handshake) through Caddy → PWA/legal pages served → bot matches persisting to containerized Postgres
 
+## Feedback rounds (post-M4 user QA)
+
+- [x] Round 1: render interpolation (judder), browser-zoom fairness + guards, wormate-style food/effect art, ZOOM powerup
+- [x] Round 2: input-rate blackout fix (the real ~1s bump), premium art v2, cache-correct asset URLs
+- [x] Round 3: PathTracker tail fix (coiling), resident AI bots playing + ranked, world 18000, square minimap, invite links (?join), global top-10 on home — 23/23 E2E, quality gate green
+
 ## Milestone M5 — VPS release (phases 30–32)
 
 - [ ] VPS provisioning + DNS + UFW (user's VPS + domain)

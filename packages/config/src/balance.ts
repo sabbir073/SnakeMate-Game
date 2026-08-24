@@ -37,7 +37,7 @@ export const NET = {
 
 export const WORLD = {
   /** Playable square world edge length (wu). Spec ceiling is 100000. */
-  size: 10000,
+  size: 18000,
   /** Hard ceiling from spec §21 — config may raise size up to this. */
   maxSize: 100000,
   /** Radius of the soft boundary band where worms are turned back / die. */
@@ -102,7 +102,7 @@ export const FOOD_RULES = {
   /** Target ambient food count per wu² (density). */
   densityPer1e6: 55, // per 1,000,000 wu² (i.e. ~5500 items in a 10000² world... see note)
   /** Hard cap on total ambient food in a room. */
-  maxAmbient: 6000,
+  maxAmbient: 14000,
   /** Pickup reach = worm head radius + food radius + this slack (wu). */
   pickupSlack: 4,
   /** Magnet powerup pull radius (wu). */
@@ -174,6 +174,21 @@ export const CAMERA = {
   viewRefHeight: 850,
   /** ZOOM powerup: extra view multiplier while active (fair — server-granted). */
   zoomPowerupFactor: 1.35,
+} as const;
+
+/** Resident AI worms (server-side) — public arenas never feel empty. */
+export const AI = {
+  /** Keep humans + bots at least this many worms in a public room. */
+  minPopulation: 8,
+  /** Never run more than this many bots per room. */
+  maxBots: 8,
+  /** Seconds before a dead bot respawns. */
+  respawnDelaySec: 2.5,
+  /** Bots think every N sim ticks (10 Hz at N=6). */
+  thinkEveryTicks: 6,
+  /** Channels that get bots: the public default plus explicit bot channels. */
+  channels: ["main"],
+  channelPrefix: "bots-",
 } as const;
 
 /** Anti-cheat envelopes (spec §54) — tolerances above theoretical maxima so

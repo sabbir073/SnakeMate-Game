@@ -121,6 +121,32 @@ nicknameInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") void onPlay();
 });
 
+// ── global top-10 leaderboard on the home screen ─────────────────────────────
+void (async () => {
+  try {
+    const res = await fetch("/api/leaderboard", { cache: "no-store" });
+    if (!res.ok) return;
+    const { entries } = (await res.json()) as {
+      entries: Array<{ name: string; score: number }>;
+    };
+    if (!entries?.length) return;
+    const panel = document.getElementById("global-lb");
+    const list = document.getElementById("global-lb-list");
+    if (!panel || !list) return;
+    const esc = (t: string): string => t.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+    list.innerHTML = entries
+      .map((e, i) => `<li><span>${i + 1}. ${esc(e.name)}</span><span>${Math.floor(e.score)}</span></li>`)
+      .join("");
+    panel.classList.add("visible");
+  } catch { /* server unreachable — panel stays hidden */ }
+})();
+
+// friend invite: show who they're joining
+try {
+  const joinId = new URLSearchParams(location.search).get("join");
+  if (joinId) statusEl.textContent = "Invite link ready — press PLAY to join your friend's arena!";
+} catch { /* ignore */ }
+
 // ── skin picker ──────────────────────────────────────────────────────────────
 
 if (skinRow) {

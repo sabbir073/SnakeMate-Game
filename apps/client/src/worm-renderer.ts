@@ -1,6 +1,8 @@
 import Phaser from "phaser";
 import { skinById } from "@nibblio/config";
 import { lengthForMass, radiusForMass } from "@nibblio/game-core";
+import { PathTracker } from "./path-tracker.js";
+import type { PathPoint } from "./path-tracker.js";
 
 /** Sprite circle content radius inside a 256px master (r = 0.42 * 256),
  *  rendered into square frames — display size compensates so the drawn circle
@@ -22,7 +24,8 @@ function blendToWhite(color: number, t: number): number {
 /** Draws one worm from atlas sprites: skinned head (rotates with heading),
  *  follow-the-leader body segments, DOM-crisp nameplate. */
 export class WormRenderer {
-  private segments: Array<{ x: number; y: number }> = [];
+  private readonly path = new PathTracker();
+  private readonly scratch: PathPoint = { x: 0, y: 0 };
   private bodySprites: Phaser.GameObjects.Image[] = [];
   private head: Phaser.GameObjects.Image;
   private label: Phaser.GameObjects.Text;
@@ -98,26 +101,9 @@ export class WormRenderer {
     const count = Math.max(4, Math.floor(length / spacing));
     const displaySize = radius * 2 * SPRITE_CONTENT_RATIO;
 
-    // maintain segment positions
-    if (this.segments.length !== count) {
-      const last = this.segments[this.segments.length - 1] ?? { x, y };
-      while (this.segments.length < count) this.segments.push({ x: last.x, y: last.y });
-      this.segments.length = count;
-    }
-    let px = x;
-    let py = y;
-    for (const seg of this.segments) {
-      const dx = px - seg.x;
-      const dy = py - seg.y;
-      const d = Math.hypot(dx, dy);
-      if (d > spacing) {
-        const t = (d - spacing) / d;
-        seg.x += dx * t;
-        seg.y += dy * t;
-      }
-      px = seg.x;
-      py = seg.y;
-    }
+    // record the head's trajectory; segments sample the ACTUAL path so the
+    // whole body (tail included) flows through coils instead of sticking
+    this.path.record(x, y, angle, length + spacing * 2);
 
     // maintain sprite pool — grayscale ring frame tinted per skin pattern
     while (this.bodySprites.length < count) {
@@ -136,14 +122,14 @@ export class WormRenderer {
         sprite.setVisible(false);
         continue;
       }
-      const seg = this.segments[i]!;
+      this.path.pointAt((i + 1) * spacing, x, y, this.scratch);
       // gentle taper only in the last third — reads as a tube, not beads
       const tailZone = i / count;
       const taper = tailZone < 0.66 ? 1 : 1 - ((tailZone - 0.66) / 0.34) * 0.4;
       const ringTint = this.rings[Math.floor((i * spacing) / bandWidth) % ringCount] ?? this.baseTint;
       sprite
         .setVisible(true)
-        .setPosition(seg.x, seg.y)
+        .setPosition(this.scratch.x, this.scratch.y)
         .setDisplaySize(displaySize * taper, displaySize * taper)
         .setDepth(this.depthBase + (count - i) / (count + 1)) // head-side on top
         .setTint(boosting ? blendToWhite(ringTint, 0.3) : ringTint);
@@ -279,12 +265,9 @@ export class WormRenderer {
     this.aura.fillPath();
   }
 
-  /** Reset body to a point (respawn/teleport) so the tail doesn't streak. */
-  resetBodyAt(x: number, y: number): void {
-    for (const seg of this.segments) {
-      seg.x = x;
-      seg.y = y;
-    }
+  /** Reseed the body path at a pose (respawn/teleport). */
+  resetBodyAt(x: number, y: number, angle = 0, mass = 10): void {
+    this.path.reset(x, y, angle, lengthForMass(mass) + 20);
   }
 
   destroy(): void {

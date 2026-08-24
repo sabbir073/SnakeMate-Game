@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { assetUrl } from "./assets.js";
 import { getSettings, onSettingsChange } from "./settings.js";
 
 /** Controlled audio manager (spec §44–45): volume buses, sound-spam
@@ -28,8 +29,8 @@ export class AudioManager {
   }
 
   static preload(scene: Phaser.Scene): void {
-    for (const key of SFX_KEYS) scene.load.audio(key, `/assets/audio/${key}.mp3`);
-    scene.load.audio("music", "/assets/audio/music.mp3");
+    for (const key of SFX_KEYS) scene.load.audio(key, assetUrl(`/assets/audio/${key}.mp3`));
+    scene.load.audio("music", assetUrl("/assets/audio/music.mp3"));
   }
 
   startMusic(): void {

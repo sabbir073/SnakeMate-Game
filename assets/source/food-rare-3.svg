@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<defs><radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+<stop offset="0" stop-color="#FFA94D" stop-opacity="0.55"/>
+<stop offset="0.6" stop-color="#FFA94D" stop-opacity="0.28"/>
+<stop offset="1" stop-color="#FFA94D" stop-opacity="0"/>
+</radialGradient><radialGradient id="g" cx="0.5" cy="0.42" r="0.65">
+<stop offset="0" stop-color="#ffc586"/><stop offset="1" stop-color="#FFA94D"/>
+</radialGradient></defs>
+
+<circle cx="128" cy="128" r="125.44" fill="url(#halo)" opacity="0.5"/>
+<g transform="translate(0 14.08)" opacity="0.45">
+<path d="M 70.56 108.3392
+  Q 29.695999999999998 75.77600000000001 -1.024000000000001 91.136
+  Q 14.335999999999999 128 -1.024000000000001 164.864
+  Q 29.695999999999998 180.224 70.56 147.6608 Z"
+  fill="#FFA94D" stroke="#2B1A3D" stroke-width="9.216" stroke-linejoin="round"/>
+<path d="M 185.44 108.3392
+  Q 226.304 75.77600000000001 257.024 91.136
+  Q 241.664 128 257.024 164.864
+  Q 226.304 180.224 185.44 147.6608 Z"
+  fill="#FFA94D" stroke="#2B1A3D" stroke-width="9.216" stroke-linejoin="round"/>
+<circle cx="128" cy="128" r="61.44" fill="#8c5d2a"/></g>
+
+<path d="M 70.56 108.3392
+  Q 29.695999999999998 75.77600000000001 -1.024000000000001 91.136
+  Q 14.335999999999999 128 -1.024000000000001 164.864
+  Q 29.695999999999998 180.224 70.56 147.6608 Z"
+  fill="#FFA94D" stroke="#2B1A3D" stroke-width="9.216" stroke-linejoin="round"/>
+<path d="M 185.44 108.3392
+  Q 226.304 75.77600000000001 257.024 91.136
+  Q 241.664 128 257.024 164.864
+  Q 226.304 180.224 185.44 147.6608 Z"
+  fill="#FFA94D" stroke="#2B1A3D" stroke-width="9.216" stroke-linejoin="round"/>
+<circle cx="128" cy="128" r="61.44" fill="url(#g)" stroke="#2B1A3D" stroke-width="11.52"/>
+<path d="M 84.992 103.424 Q 128 81.92 171.00799999999998 103.424"
+  fill="none" stroke="#FFF3DD" stroke-width="5" stroke-linecap="round" opacity="0.9"/>
+<path d="M 84.992 152.576 Q 128 131.072 171.00799999999998 152.576"
+  fill="none" stroke="#b37636" stroke-width="5" stroke-linecap="round" opacity="0.7"/>
+<ellipse cx="109.568" cy="100.352" rx="18.432" ry="11.059199999999999" fill="#ffffff" opacity="0.85"
+    transform="rotate(-24 109.568 100.352)"/>
+</svg>

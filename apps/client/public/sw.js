@@ -1,6 +1,6 @@
 /* Nibblio service worker (spec §76): offline shell for STATIC assets only.
  * The multiplayer game itself requires a connection — never faked offline. */
-const CACHE = "nibblio-static-v1";
+const CACHE = "nibblio-static-v2";
 const CORE = ["/", "/manifest.webmanifest", "/favicon.png"];
 
 self.addEventListener("install", (e) => {

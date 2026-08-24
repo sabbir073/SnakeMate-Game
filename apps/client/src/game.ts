@@ -14,6 +14,7 @@ import { AudioManager } from "./audio.js";
 import { MobileControls, isTouchDevice } from "./mobile-controls.js";
 import { getSettings } from "./settings.js";
 import { DebugPanel } from "./debug-panel.js";
+import { assetUrl, atlasUrls, initAssetVersions } from "./assets.js";
 import { CLIENT_VERSION } from "./main.js";
 
 export interface StartOptions {
@@ -53,18 +54,20 @@ function maybeDelay(fn: () => void): void {
   else fn();
 }
 
-/** Sprite display scale per food kind (frame content varies per silhouette). */
+/** Sprite display scale per food kind — frames carry a baked glow margin, so
+ *  the visible dessert is ~60% of the frame; these scales make food chunky
+ *  and readable (premium look) while pickup radius stays the sim's. */
 const FOOD_SCALE: Record<FoodKind, number> = {
-  COMMON: 4.6,
-  RARE: 4.4,
-  EPIC: 3.6,
-  BONUS: 3.2,
-  DEATH_LOOT: 4.0,
+  COMMON: 7.0,
+  RARE: 6.2,
+  EPIC: 5.6,
+  BONUS: 5.2,
+  DEATH_LOOT: 8.2,
 };
 
-/** Frame-variant counts per kind (wormate-style variety). */
+/** Frame-variant counts per kind (dessert variety). */
 const FOOD_VARIANTS: Record<FoodKind, number> = {
-  COMMON: 6, RARE: 3, EPIC: 2, BONUS: 2, DEATH_LOOT: 1,
+  COMMON: 8, RARE: 4, EPIC: 4, BONUS: 4, DEATH_LOOT: 1,
 };
 
 function foodFrame(kind: FoodKind, id: number): string {
@@ -79,6 +82,8 @@ class ArenaScene extends Phaser.Scene {
   private remotes = new Map<string, RemoteEntry>();
   private food = new Map<number, FoodEntry>();
   private foodPool: Phaser.GameObjects.Image[] = [];
+  private lootGlowPool: Phaser.GameObjects.Image[] = [];
+  private popupPool: Phaser.GameObjects.Text[] = [];
   private powerups = new Map<number, { kind: string; x: number; y: number }>();
   private powerupPool: Phaser.GameObjects.Image[] = [];
   private localEffects: string[] = [];
@@ -110,8 +115,9 @@ class ArenaScene extends Phaser.Scene {
   }
 
   preload(): void {
-    this.load.atlas("game-atlas", "/assets/game-atlas.png", "/assets/game-atlas.json");
-    this.load.image("bg-tile", "/assets/bg-tile.png");
+    const atlas = atlasUrls();
+    this.load.atlas("game-atlas", atlas.texture, atlas.data);
+    this.load.image("bg-tile", assetUrl("/assets/bg-tile.png"));
     AudioManager.preload(this);
   }
 
@@ -203,9 +209,10 @@ class ArenaScene extends Phaser.Scene {
             this.predictor.reconcile(update);
             this.localAlive = update.alive;
             this.localMassView = update.mass;
-            // sound: ate something (mass up while alive and not from respawn)
+            // sound + floating score popup (premium juice)
             if (wasAlive && update.alive && update.mass > prevMass + 0.5) {
               this.audio.playPickup(update.mass - prevMass);
+              this.spawnScorePopup(update.x, update.y, Math.round(update.mass - prevMass));
             }
             // sound: gained a powerup effect
             if (effects.some((e) => !prevEffects.includes(e))) {
@@ -482,11 +489,12 @@ class ArenaScene extends Phaser.Scene {
     // pooled atlas sprites, camera-culled; gentle bob for life
     const cam = this.cameras.main;
     const view = cam.worldView;
-    const pad = 40;
+    const pad = 140; // covers the largest food sprite incl. glow margin
     const settings = getSettings();
     const animate = settings.quality === "high" && !settings.reducedMotion;
     const bob = animate ? Math.sin(performance.now() / 350) * 0.08 + 1 : 1;
     let used = 0;
+    let usedGlow = 0;
     for (const [id, f] of this.food) {
       if (
         f.x < view.x - pad || f.x > view.right + pad ||
@@ -501,17 +509,72 @@ class ArenaScene extends Phaser.Scene {
       }
       const size = f.radius * FOOD_SCALE[f.kind] * (f.kind === "BONUS" || f.kind === "EPIC" ? 1 : bob);
       const phase = (id % 7) / 7;
+      const fy = f.y + (animate ? Math.sin(performance.now() / 500 + phase * 6.28) * 1.5 : 0);
       sprite
         .setVisible(true)
         .setFrame(foodFrame(f.kind, id))
-        .setPosition(
-          f.x,
-          f.y + (animate ? Math.sin(performance.now() / 500 + phase * 6.28) * 1.5 : 0),
-        )
+        .setPosition(f.x, fy)
         .setDisplaySize(size, size);
+
+      // dead-body drops radiate: pulsing additive glow beneath (premium)
+      if (f.kind === "DEATH_LOOT") {
+        let glow = this.lootGlowPool[usedGlow];
+        if (!glow) {
+          glow = this.add
+            .image(0, 0, "game-atlas", "fx-glow")
+            .setBlendMode(Phaser.BlendModes.ADD)
+            .setDepth(2.5);
+          this.lootGlowPool.push(glow);
+        }
+        const pulse = animate ? 0.55 + 0.25 * Math.sin(performance.now() / 260 + phase * 6.28) : 0.6;
+        glow
+          .setVisible(true)
+          .setPosition(f.x, fy)
+          .setTint(0xffb545)
+          .setAlpha(pulse)
+          .setDisplaySize(size * 1.6, size * 1.6);
+        usedGlow++;
+      }
       used++;
     }
     for (let i = used; i < this.foodPool.length; i++) this.foodPool[i]!.setVisible(false);
+    for (let i = usedGlow; i < this.lootGlowPool.length; i++) this.lootGlowPool[i]!.setVisible(false);
+  }
+
+  /** Floating "+N" text that rises and fades at the eat position. */
+  private spawnScorePopup(x: number, y: number, value: number): void {
+    const settings = getSettings();
+    if (settings.reducedMotion) return;
+    let popup = this.popupPool.find((p) => !p.visible);
+    if (!popup) {
+      if (this.popupPool.length >= 12) return; // bound the pool
+      popup = this.add
+        .text(0, 0, "", {
+          fontFamily: "'Baloo 2', system-ui, sans-serif",
+          fontSize: "22px",
+          fontStyle: "bold",
+          color: "#FFE066",
+          stroke: "#2B1A3D",
+          strokeThickness: 5,
+        })
+        .setOrigin(0.5, 1)
+        .setDepth(30);
+      this.popupPool.push(popup);
+    }
+    popup
+      .setText(`+${value}`)
+      .setPosition(x, y - 30)
+      .setAlpha(1)
+      .setScale(value >= 8 ? 1.35 : 1)
+      .setVisible(true);
+    this.tweens.add({
+      targets: popup,
+      y: y - 95,
+      alpha: 0,
+      duration: 850,
+      ease: "Cubic.easeOut",
+      onComplete: () => popup!.setVisible(false),
+    });
   }
 
   private renderPowerups(): void {
@@ -587,6 +650,7 @@ export async function startGame(opts: StartOptions): Promise<void> {
   }
 
   opts.onStatus("Searching for an arena…");
+  await initAssetVersions(); // cache-consistent asset URLs before any preload
   const conn = await connect(opts.nickname, opts.skinId);
   opts.onStatus("Joining arena…");
 

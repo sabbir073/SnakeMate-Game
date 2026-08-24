@@ -1,11 +1,23 @@
 import Phaser from "phaser";
-import { WORM, skinById } from "@nibblio/config";
+import { skinById } from "@nibblio/config";
 import { lengthForMass, radiusForMass } from "@nibblio/game-core";
 
 /** Sprite circle content radius inside a 256px master (r = 0.42 * 256),
  *  rendered into square frames — display size compensates so the drawn circle
  *  matches the sim radius exactly. */
 const SPRITE_CONTENT_RATIO = 1 / (2 * 0.42);
+/** Render-side segment spacing (wu) for a continuous, premium-looking tube.
+ *  Grows for huge worms so per-worm sprite count stays bounded. */
+const RENDER_SPACING_BASE = 9;
+const MAX_SEGMENTS = 110;
+
+function blendToWhite(color: number, t: number): number {
+  const r = (color >> 16) & 255;
+  const g = (color >> 8) & 255;
+  const b = color & 255;
+  const f = (c: number): number => Math.round(c + (255 - c) * t);
+  return (f(r) << 16) | (f(g) << 8) | f(b);
+}
 
 /** Draws one worm from atlas sprites: skinned head (rotates with heading),
  *  follow-the-leader body segments, DOM-crisp nameplate. */
@@ -15,7 +27,10 @@ export class WormRenderer {
   private head: Phaser.GameObjects.Image;
   private label: Phaser.GameObjects.Text;
   private aura: Phaser.GameObjects.Graphics;
+  private boostGlow: Phaser.GameObjects.Image;
   private skinId = "";
+  private rings: readonly number[] = [0xffb545];
+  private baseTint = 0xffb545;
   private readonly depthBase: number;
 
   constructor(
@@ -29,6 +44,11 @@ export class WormRenderer {
       .setDepth(this.depthBase + 1)
       .setVisible(false);
     this.aura = scene.add.graphics().setDepth(this.depthBase + 2);
+    this.boostGlow = scene.add
+      .image(0, 0, "game-atlas", "fx-glow")
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(this.depthBase - 0.5)
+      .setVisible(false);
     this.label = scene.add
       .text(0, 0, nickname, {
         fontFamily: "'Baloo 2', system-ui, sans-serif",
@@ -48,9 +68,11 @@ export class WormRenderer {
 
   setSkin(skinId: string): void {
     if (this.skinId === skinId) return;
-    this.skinId = skinById(skinId).id;
+    const skin = skinById(skinId);
+    this.skinId = skin.id;
+    this.rings = skin.rings;
+    this.baseTint = skin.baseTint;
     this.head.setFrame(`worm-head-${this.skinId}`);
-    for (const s of this.bodySprites) s.setFrame(`worm-body-${this.skinId}`);
   }
 
   draw(
@@ -60,6 +82,7 @@ export class WormRenderer {
     if (!alive) {
       this.head.setVisible(false);
       this.label.setVisible(false);
+      this.boostGlow.setVisible(false);
       this.aura.clear();
       for (const s of this.bodySprites) s.setVisible(false);
       return;
@@ -71,8 +94,8 @@ export class WormRenderer {
 
     const radius = radiusForMass(mass);
     const length = lengthForMass(mass);
-    const spacing = WORM.segmentSpacing;
-    const count = Math.max(3, Math.floor(length / spacing));
+    const spacing = Math.max(RENDER_SPACING_BASE, length / MAX_SEGMENTS);
+    const count = Math.max(4, Math.floor(length / spacing));
     const displaySize = radius * 2 * SPRITE_CONTENT_RATIO;
 
     // maintain segment positions
@@ -96,14 +119,17 @@ export class WormRenderer {
       py = seg.y;
     }
 
-    // maintain sprite pool
+    // maintain sprite pool — grayscale ring frame tinted per skin pattern
     while (this.bodySprites.length < count) {
       this.bodySprites.push(
         this.scene.add
-          .image(0, 0, "game-atlas", `worm-body-${this.skinId || "s0"}`)
+          .image(0, 0, "game-atlas", "worm-ring")
           .setDepth(this.depthBase),
       );
     }
+    const ringCount = this.rings.length;
+    // band width scales with the worm so rings stay chunky at any size
+    const bandWidth = Math.max(radius * 1.7, 16);
     for (let i = 0; i < this.bodySprites.length; i++) {
       const sprite = this.bodySprites[i]!;
       if (i >= count) {
@@ -111,24 +137,38 @@ export class WormRenderer {
         continue;
       }
       const seg = this.segments[i]!;
-      const taper = 1 - (i / count) * 0.35;
+      // gentle taper only in the last third — reads as a tube, not beads
+      const tailZone = i / count;
+      const taper = tailZone < 0.66 ? 1 : 1 - ((tailZone - 0.66) / 0.34) * 0.4;
+      const ringTint = this.rings[Math.floor((i * spacing) / bandWidth) % ringCount] ?? this.baseTint;
       sprite
         .setVisible(true)
         .setPosition(seg.x, seg.y)
         .setDisplaySize(displaySize * taper, displaySize * taper)
-        .setDepth(this.depthBase + (count - i) / (count + 1)) // head-side segments on top
-        .setAlpha(boosting ? 0.96 : 1);
-      if (boosting) sprite.setTint(0xfff1c9);
-      else sprite.clearTint();
+        .setDepth(this.depthBase + (count - i) / (count + 1)) // head-side on top
+        .setTint(boosting ? blendToWhite(ringTint, 0.3) : ringTint);
     }
 
     this.head
       .setVisible(true)
       .setPosition(x, y)
       .setRotation(angle)
-      .setDisplaySize(displaySize * 1.12, displaySize * 1.12);
+      .setDisplaySize(displaySize * 1.22, displaySize * 1.22);
     if (boosting) this.head.setTint(0xfff1c9);
     else this.head.clearTint();
+
+    // premium boost feedback: additive glow trailing the whole head
+    if (boosting) {
+      const pulse = 0.5 + 0.15 * Math.sin(performance.now() / 90);
+      this.boostGlow
+        .setVisible(true)
+        .setPosition(x, y)
+        .setTint(this.baseTint)
+        .setAlpha(pulse)
+        .setDisplaySize(displaySize * 3.2, displaySize * 3.2);
+    } else {
+      this.boostGlow.setVisible(false);
+    }
 
     this.drawAuras(x, y, angle, radius, effects);
   }
@@ -251,6 +291,7 @@ export class WormRenderer {
     this.head.destroy();
     this.label.destroy();
     this.aura.destroy();
+    this.boostGlow.destroy();
     for (const s of this.bodySprites) s.destroy();
     this.bodySprites.length = 0;
   }

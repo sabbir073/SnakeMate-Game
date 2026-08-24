@@ -19,10 +19,11 @@ import type { AtlasFrameIn } from "./atlas.js";
 import { paths } from "./paths.js";
 
 const ATLAS_SIZES: Record<string, number> = {
-  "worm-head": 128,
-  "worm-body": 128,
-  food: 64,
+  "worm-head": 160,
+  "worm-ring": 128,
+  food: 96,
   powerup: 96,
+  "fx-glow": 128,
 };
 
 function frameSize(name: string): number {
@@ -61,7 +62,7 @@ async function main(): Promise<void> {
   // 2. atlas frames (worm parts, food, powerups)
   const frames: AtlasFrameIn[] = [];
   for (const name of masters) {
-    if (!/^(worm-|food-|powerup-)/.test(name)) continue;
+    if (!/^(worm-|food-|powerup-|fx-)/.test(name)) continue;
     const size = frameSize(name);
     const png = await renderSquare(path.join(paths.source, name), size);
     frames.push({ name: name.replace(/\.svg$/, ""), png, width: size, height: size });

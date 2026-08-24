@@ -1,32 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-<defs><radialGradient id="g" cx="0.5" cy="0.42" r="0.65">
-<stop offset="0" stop-color="#ffc382"/><stop offset="1" stop-color="#FFA94D"/>
-</radialGradient></defs>
+<defs><radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+<stop offset="0" stop-color="#C58AFF" stop-opacity="0.55"/>
+<stop offset="0.6" stop-color="#C58AFF" stop-opacity="0.28"/>
+<stop offset="1" stop-color="#C58AFF" stop-opacity="0"/>
+</radialGradient><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#d8afff"/><stop offset="1" stop-color="#C58AFF"/>
+</linearGradient></defs>
 
+<circle cx="128" cy="128" r="125.44" fill="url(#halo)" opacity="0.5"/>
 
-<path d="M 64 108.6464
-  Q 24.319999999999993 76.16 -17.152000000000015 85.1456
-  Q 7.039999999999992 128 -17.152000000000015 170.8544
-  Q 24.319999999999993 179.84 64 147.3536 Z"
-  fill="#FFA94D" stroke="#2B1A3D" stroke-width="10.240000000000002" stroke-linejoin="round"/>
-<path d="M 34.68799999999999 93.44 Q 24.319999999999993 128 34.68799999999999 162.56"
-  fill="none" stroke="#E07F1F" stroke-width="7.040000000000001" stroke-linecap="round"/>
+<ellipse cx="128" cy="186.752" rx="87.04" ry="34.56" fill="#8a61b3" stroke="#2B1A3D" stroke-width="11.52"/>
+<rect x="47.923199999999994" y="119.36" width="160.1536" height="65.664"
+  rx="27.648000000000003" fill="#FFF3DD" stroke="#2B1A3D" stroke-width="9.216"/>
 
-<path d="M 192 108.6464
-  Q 231.68 76.16 273.15200000000004 85.1456
-  Q 248.96 128 273.15200000000004 170.8544
-  Q 231.68 179.84 192 147.3536 Z"
-  fill="#FFA94D" stroke="#2B1A3D" stroke-width="10.240000000000002" stroke-linejoin="round"/>
-<path d="M 221.312 93.44 Q 231.68 128 221.312 162.56"
-  fill="none" stroke="#E07F1F" stroke-width="7.040000000000001" stroke-linecap="round"/>
-<circle cx="128" cy="128" r="69.12" fill="url(#g)" stroke="#2B1A3D" stroke-width="12.8"/>
-<path d="M 89.984 70.63040000000001 Q 128 55.42399999999999 166.01600000000002 70.63040000000001"
-  fill="none" stroke="#FFE1BF" stroke-width="10.240000000000002" stroke-linecap="round" opacity="0.9"/>
-<path d="M 76.16 103.80799999999999 Q 128 86.52799999999999 179.84 103.80799999999999"
-  fill="none" stroke="#E07F1F" stroke-width="8.959999999999999" stroke-linecap="round" opacity="0.5"/>
-<path d="M 76.16 152.192 Q 128 134.912 179.84 152.192"
-  fill="none" stroke="#E07F1F" stroke-width="8.959999999999999" stroke-linecap="round" opacity="0.5"/>
-<ellipse cx="107.264" cy="98.9696" rx="20.736" ry="12.441600000000001"
-  fill="#ffffff" opacity="0.8" transform="rotate(-24 107.264 98.9696)"/>
+<ellipse cx="128" cy="88.256" rx="87.04" ry="34.56" fill="url(#g)" stroke="#2B1A3D" stroke-width="11.52"/>
+<path d="M 53.1456 115.904 Q 61.46275555555556 147.008 69.77991111111112 115.904 M 69.77991111111112 115.904 Q 78.09706666666668 147.008 86.41422222222222 115.904 M 86.41422222222222 115.904 Q 94.73137777777778 147.008 103.04853333333334 115.904 M 103.04853333333334 115.904 Q 111.36568888888888 147.008 119.68284444444444 115.904 M 119.68284444444444 115.904 Q 128 147.008 136.3171555555556 115.904 M 136.3171555555556 115.904 Q 144.63431111111112 147.008 152.95146666666668 115.904 M 152.95146666666668 115.904 Q 161.26862222222223 147.008 169.5857777777778 115.904 M 169.5857777777778 115.904 Q 177.90293333333335 147.008 186.22008888888888 115.904 M 186.22008888888888 115.904 Q 194.53724444444444 147.008 202.8544 115.904 " fill="none" stroke="#9468bf" stroke-width="4" opacity="0.8"/>
+<ellipse cx="93.184" cy="62.336" rx="26.112000000000002" ry="15.552000000000001" fill="#ffffff" opacity="0.85"
+    transform="rotate(-24 93.184 62.336)"/>
+<path d="M 175.872 41.72799999999999 Q 177.7152 50.124799999999986 186.11200000000002 51.96799999999999
+    Q 177.7152 53.81119999999999 175.872 62.20799999999999
+    Q 174.02880000000002 53.81119999999999 165.632 51.96799999999999
+    Q 174.02880000000002 50.124799999999986 175.872 41.72799999999999 Z" fill="#ffffff" opacity="0.95"/>
 </svg>

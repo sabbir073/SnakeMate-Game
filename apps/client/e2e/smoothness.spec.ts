@@ -1,10 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { joinArena } from "./helpers.js";
+import { joinArena, probe } from "./helpers.js";
 
 test.describe("motion quality & zoom fairness", () => {
   test("local worm renders without periodic judder", async ({ page }) => {
     await joinArena(page, "SmoothCheck");
-    await page.mouse.move(1100, 360);
+    // steer toward the world center so the wall can't interrupt the sample
+    const p0 = await probe(page);
+    await page.mouse.move(p0.x < 5000 ? 1100 : 180, p0.y < 5000 ? 620 : 100);
     await page.waitForTimeout(1500);
 
     // sample the RENDERED position every animation frame for ~2s

@@ -8,7 +8,10 @@ import { SKINS } from "@nibblio/config";
 import {
   OUTLINE, darken, eye, gloss, lighten, rGradient, svgDoc, vGradient,
 } from "./svg.js";
-import { CANDY_COLORS, bonbon, candyDrop, donut, lollipop, soulOrb } from "./food-art.js";
+import {
+  DROP_COLORS, bonbon, cakeSlice, candyDrop, cookie, donut, fxGlow,
+  gummyBear, jellyBean, lollipop, macaron, soulOrb,
+} from "./food-art2.js";
 import { POWERUP_STYLE, powerupBadge } from "./powerup-art.js";
 import { paths } from "./paths.js";
 
@@ -21,33 +24,47 @@ function wormHead(base: string, shade: string, accent: string): string {
   const c = S / 2;
   const r = S * 0.42;
   const defs =
-    rGradient("g", lighten(base, 0.25), base) +
-    vGradient("mouth", darken(shade, 0.2), darken(shade, 0.4));
-  // face points RIGHT (angle 0) — matches engine convention
-  const eyeR = r * 0.3;
-  const ex = c + r * 0.36;
-  const ey = r * 0.46;
+    rGradient("g", lighten(base, 0.3), base) +
+    vGradient("mouthG", "#7A1F35", "#4A0F1E");
+  // face points RIGHT (angle 0) — big forward googly eyes, brows, open smile
+  const eyeR = r * 0.38;
+  const ex = c + r * 0.3;
+  const ey = r * 0.44;
+  const premiumEye = (cy: number): string => `
+<circle cx="${ex}" cy="${cy}" r="${eyeR}" fill="#ffffff" stroke="${OUTLINE}" stroke-width="${eyeR * 0.13}"/>
+<circle cx="${ex + eyeR * 0.34}" cy="${cy + eyeR * 0.02}" r="${eyeR * 0.46}" fill="#1B0F2E"/>
+<circle cx="${ex + eyeR * 0.52}" cy="${cy - eyeR * 0.18}" r="${eyeR * 0.15}" fill="#ffffff"/>
+<circle cx="${ex + eyeR * 0.2}" cy="${cy + eyeR * 0.24}" r="${eyeR * 0.07}" fill="#ffffff" opacity="0.8"/>
+<path d="M ${ex - eyeR * 0.75} ${cy - eyeR * 1.06} Q ${ex} ${cy - eyeR * 1.4} ${ex + eyeR * 0.8} ${cy - eyeR * 1.02}"
+  fill="none" stroke="${OUTLINE}" stroke-width="${eyeR * 0.14}" stroke-linecap="round"/>`;
+  const mx = c + r * 0.72;
   const body = `
 <circle cx="${c}" cy="${c}" r="${r}" fill="url(#g)" stroke="${OUTLINE}" stroke-width="${OW}"/>
-<path d="M ${c - r * 0.15} ${c - r} A ${r} ${r} 0 0 1 ${c - r * 0.15} ${c + r}" fill="${accent}" opacity="0.35"/>
-${gloss(c, c, r)}
-<ellipse cx="${c + r * 0.78}" cy="${c}" rx="${r * 0.14}" ry="${r * 0.19}" fill="url(#mouth)" stroke="${OUTLINE}" stroke-width="${OW * 0.5}"/>
-${eye(ex, c - ey, eyeR)}
-${eye(ex, c + ey, eyeR)}`;
+<path d="M ${c - r * 0.2} ${c - r} A ${r} ${r} 0 0 1 ${c - r * 0.2} ${c + r}" fill="${accent}" opacity="0.3"/>
+<path d="M ${c - r} ${c} A ${r} ${r} 0 0 0 ${c + r * 0.5} ${c + r * 0.86}" fill="none"
+  stroke="${shade}" stroke-width="${OW * 1.4}" opacity="0.35"/>
+${gloss(c - r * 0.1, c - r * 0.12, r)}
+<path d="M ${mx} ${c - r * 0.3} Q ${mx + r * 0.42} ${c} ${mx} ${c + r * 0.3} Q ${mx - r * 0.3} ${c} ${mx} ${c - r * 0.3} Z"
+  fill="url(#mouthG)" stroke="${OUTLINE}" stroke-width="${OW * 0.6}" stroke-linejoin="round"/>
+<ellipse cx="${mx + r * 0.04}" cy="${c + r * 0.14}" rx="${r * 0.13}" ry="${r * 0.08}" fill="#FF6F8E"/>
+${premiumEye(c - ey)}
+${premiumEye(c + ey)}`;
   return svgDoc(S, body, defs);
 }
 
-function wormBody(base: string, shade: string, accent: string): string {
+/** Grayscale glossy orb — tinted per-ring at runtime for patterned bodies. */
+function wormRing(): string {
   const c = S / 2;
   const r = S * 0.42;
-  const defs = rGradient("g", lighten(base, 0.22), base);
+  const defs = rGradient("g", "#FFFFFF", "#B9B9C4");
   const body = `
-<circle cx="${c}" cy="${c}" r="${r}" fill="url(#g)" stroke="${OUTLINE}" stroke-width="${OW}"/>
-<path d="M ${c} ${c - r} A ${r} ${r} 0 0 0 ${c} ${c + r} Z" fill="${shade}" opacity="0.25"/>
-<circle cx="${c}" cy="${c}" r="${r * 0.45}" fill="${accent}" opacity="0.5"/>
-${gloss(c, c, r)}`;
+<circle cx="${c}" cy="${c}" r="${r}" fill="url(#g)" stroke="#26262E" stroke-width="${OW}"/>
+<path d="M ${c - r} ${c} A ${r} ${r} 0 0 0 ${c + r} ${c} A ${r * 0.99} ${r * 0.99} 0 0 1 ${c - r} ${c} Z"
+  fill="#8E8E9C" opacity="0.45"/>
+${gloss(c - r * 0.05, c - r * 0.1, r)}`;
   return svgDoc(S, body, defs);
 }
+
 
 // ── powerup badges ─────
 
@@ -155,16 +172,22 @@ export async function generateAllArt(): Promise<string[]> {
 
   for (const skin of SKINS) {
     await write(`worm-head-${skin.id}.svg`, wormHead(skin.base, skin.shade, skin.accent));
-    await write(`worm-body-${skin.id}.svg`, wormBody(skin.base, skin.shade, skin.accent));
   }
+  await write("worm-ring.svg", wormRing());
+  await write("fx-glow.svg", fxGlow());
 
-  // wormate-style candy foods with per-kind variety
-  for (let i = 0; i < CANDY_COLORS.length; i++) {
+  // premium dessert food set v2 (2.5D extrusion + baked glow)
+  for (let i = 0; i < DROP_COLORS.length; i++) {
     await write(`food-common-${i}.svg`, candyDrop(i));
   }
-  for (let i = 0; i < 3; i++) await write(`food-rare-${i}.svg`, bonbon(i));
-  for (let i = 0; i < 2; i++) await write(`food-epic-${i}.svg`, lollipop(i));
+  await write("food-common-6.svg", cookie());
+  await write("food-common-7.svg", jellyBean());
+  for (let i = 0; i < 3; i++) await write(`food-rare-${i}.svg`, macaron(i));
+  await write("food-rare-3.svg", bonbon());
+  for (let i = 0; i < 2; i++) await write(`food-epic-${i}.svg`, gummyBear(i));
+  for (let i = 0; i < 2; i++) await write(`food-epic-${i + 2}.svg`, lollipop(i));
   for (let i = 0; i < 2; i++) await write(`food-bonus-${i}.svg`, donut(i));
+  for (let i = 0; i < 2; i++) await write(`food-bonus-${i + 2}.svg`, cakeSlice(i));
   await write("food-death_loot.svg", soulOrb());
 
   for (const kind of Object.keys(POWERUP_STYLE)) {

@@ -14,8 +14,9 @@ export const SIM = {
 export const NET = {
   /** Server → client snapshot publish rate (Hz). */
   snapshotRate: 20,
-  /** Max client input messages per second accepted. */
-  inputRate: 30,
+  /** Client input send rate (Hz) — one intention per sim tick (1:1 with the
+   *  fixed timestep keeps prediction replay exact). */
+  inputRate: 60,
   /** Remote-entity render delay, in snapshot intervals. */
   interpolationIntervals: 1.5,
   /** Reconnect grace window (seconds) during which a dropped worm survives. */
@@ -181,6 +182,8 @@ export const VALIDATION = {
   speedTolerance: 1.15,
   turnTolerance: 1.25,
   pickupDistanceTolerance: 1.6,
-  maxInputRate: 40,        // hard drop threshold (msgs/sec)
+  maxInputRate: 95,        // hard drop threshold (msgs/sec) — must exceed
+                           // NET.inputRate with jitter-burst headroom, or the
+                           // guard blackouts steering at each window tail
   maxMassGainPerSec: 400,  // sanity ceiling
 } as const;

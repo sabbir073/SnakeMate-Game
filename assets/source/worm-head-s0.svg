@@ -1,19 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
 <defs><radialGradient id="g" cx="0.5" cy="0.42" r="0.65">
-<stop offset="0" stop-color="#ffc874"/><stop offset="1" stop-color="#FFB545"/>
-</radialGradient><linearGradient id="mouth" x1="0" y1="0" x2="0" y2="1">
-<stop offset="0" stop-color="#ab6e18"/><stop offset="1" stop-color="#805312"/>
+<stop offset="0" stop-color="#ffcb7d"/><stop offset="1" stop-color="#FFB545"/>
+</radialGradient><linearGradient id="mouthG" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#7A1F35"/><stop offset="1" stop-color="#4A0F1E"/>
 </linearGradient></defs>
 
 <circle cx="128" cy="128" r="107.52" fill="url(#g)" stroke="#2B1A3D" stroke-width="14.08"/>
-<path d="M 111.872 20.480000000000004 A 107.52 107.52 0 0 1 111.872 235.51999999999998" fill="#FFE08A" opacity="0.35"/>
-<ellipse cx="93.59360000000001" cy="82.8416" rx="36.5568" ry="23.6544" fill="#ffffff" opacity="0.55" transform="rotate(-24 93.59360000000001 82.8416)"/>
-<ellipse cx="211.8656" cy="128" rx="15.052800000000001" ry="20.4288" fill="url(#mouth)" stroke="#2B1A3D" stroke-width="7.04"/>
-<circle cx="166.7072" cy="78.54079999999999" r="32.256" fill="#ffffff" stroke="#2B1A3D" stroke-width="4.515840000000001"/>
-<circle cx="175.73888" cy="80.15359999999998" r="15.48288" fill="#241435"/>
-<circle cx="181.2224" cy="72.73472" r="5.16096" fill="#ffffff"/>
-<circle cx="166.7072" cy="177.4592" r="32.256" fill="#ffffff" stroke="#2B1A3D" stroke-width="4.515840000000001"/>
-<circle cx="175.73888" cy="179.072" r="15.48288" fill="#241435"/>
-<circle cx="181.2224" cy="171.65312" r="5.16096" fill="#ffffff"/>
+<path d="M 106.496 20.480000000000004 A 107.52 107.52 0 0 1 106.496 235.51999999999998" fill="#FFE08A" opacity="0.3"/>
+<path d="M 20.480000000000004 128 A 107.52 107.52 0 0 0 181.76 220.4672" fill="none"
+  stroke="#D68A1E" stroke-width="19.712" opacity="0.35"/>
+<ellipse cx="82.8416" cy="69.9392" rx="36.5568" ry="23.6544" fill="#ffffff" opacity="0.55" transform="rotate(-24 82.8416 69.9392)"/>
+<path d="M 205.4144 95.744 Q 250.5728 128 205.4144 160.256 Q 173.1584 128 205.4144 95.744 Z"
+  fill="url(#mouthG)" stroke="#2B1A3D" stroke-width="8.448" stroke-linejoin="round"/>
+<ellipse cx="209.7152" cy="143.0528" rx="13.9776" ry="8.6016" fill="#FF6F8E"/>
+
+<circle cx="160.256" cy="80.69120000000001" r="40.8576" fill="#ffffff" stroke="#2B1A3D" stroke-width="5.311488"/>
+<circle cx="174.147584" cy="81.508352" r="18.794496" fill="#1B0F2E"/>
+<circle cx="181.501952" cy="73.33683200000002" r="6.12864" fill="#ffffff"/>
+<circle cx="168.42752" cy="90.49702400000001" r="2.860032" fill="#ffffff" opacity="0.8"/>
+<path d="M 129.6128 37.38214400000001 Q 160.256 23.490560000000016 192.94208 39.01644800000001"
+  fill="none" stroke="#2B1A3D" stroke-width="5.720064" stroke-linecap="round"/>
+
+<circle cx="160.256" cy="175.3088" r="40.8576" fill="#ffffff" stroke="#2B1A3D" stroke-width="5.311488"/>
+<circle cx="174.147584" cy="176.12595199999998" r="18.794496" fill="#1B0F2E"/>
+<circle cx="181.501952" cy="167.954432" r="6.12864" fill="#ffffff"/>
+<circle cx="168.42752" cy="185.114624" r="2.860032" fill="#ffffff" opacity="0.8"/>
+<path d="M 129.6128 131.999744 Q 160.256 118.10816 192.94208 133.634048"
+  fill="none" stroke="#2B1A3D" stroke-width="5.720064" stroke-linecap="round"/>
 </svg>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<defs><radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+<stop offset="0" stop-color="#FF8FA3" stop-opacity="0.55"/>
+<stop offset="0.6" stop-color="#FF8FA3" stop-opacity="0.28"/>
+<stop offset="1" stop-color="#FF8FA3" stop-opacity="0"/>
+</radialGradient><radialGradient id="g" cx="0.5" cy="0.42" r="0.65">
+<stop offset="0" stop-color="#ffb6c3"/><stop offset="1" stop-color="#FF8FA3"/>
+</radialGradient></defs>
+
+<circle cx="128" cy="128" r="125.44" fill="url(#halo)" opacity="0.5"/>
+<path d="M 51.2 142.08
+      a 39.68 43.52 0 1 1 76.8 -25.6
+      a 39.68 43.52 0 1 1 76.8 25.6
+      a 79.36 76.8 0 0 1 -153.6 0 Z"
+      fill="#a65d6a" stroke="#2B1A3D" stroke-width="11.52"/>
+<path d="M 51.2 122.368
+      a 39.68 43.52 0 1 1 76.8 -25.6
+      a 39.68 43.52 0 1 1 76.8 25.6
+      a 79.36 76.8 0 0 1 -153.6 0 Z"
+      fill="url(#g)" stroke="#2B1A3D" stroke-width="11.52"/>
+<ellipse cx="92.16" cy="96.768" rx="23.04" ry="12.8" fill="#ffffff" opacity="0.85"
+    transform="rotate(-24 92.16 96.768)"/>
+<path d="M 168.96 80.64 Q 171.0336 90.0864 180.48000000000002 92.16
+    Q 171.0336 94.2336 168.96 103.67999999999999
+    Q 166.8864 94.2336 157.44 92.16
+    Q 166.8864 90.0864 168.96 80.64 Z" fill="#ffffff" opacity="0.95"/>
+</svg>

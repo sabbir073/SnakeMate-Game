@@ -1,23 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-<defs><radialGradient id="g" cx="0.5" cy="0.42" r="0.65">
-<stop offset="0" stop-color="#FFF0CE"/><stop offset="1" stop-color="#FFB545"/>
-</radialGradient><radialGradient id="halo" cx="0.5" cy="0.42" r="0.65">
-<stop offset="0" stop-color="#FFC97E99"/><stop offset="1" stop-color="#FFA94D00"/>
+<defs><radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+<stop offset="0" stop-color="#FFD166" stop-opacity="0.9"/>
+<stop offset="0.55" stop-color="#FFB545" stop-opacity="0.45"/>
+<stop offset="1" stop-color="#FFA94D" stop-opacity="0"/>
+</radialGradient><radialGradient id="g" cx="0.5" cy="0.42" r="0.65">
+<stop offset="0" stop-color="#FFFBEE"/><stop offset="1" stop-color="#FFC66E"/>
 </radialGradient></defs>
 
-<circle cx="128" cy="128" r="122.88" fill="url(#halo)"/>
-<circle cx="128" cy="128" r="71.68" fill="url(#g)" stroke="#2B1A3D" stroke-width="12.8"/>
-<circle cx="128" cy="128" r="32.25600000000001" fill="#FFFBEE" opacity="0.95"/>
-<ellipse cx="105.0624" cy="97.89439999999999" rx="24.371200000000005" ry="15.769600000000002" fill="#ffffff" opacity="0.55" transform="rotate(-24 105.0624 97.89439999999999)"/>
-<path d="M 179.6096 60.620799999999996 Q 181.97504 74.02496 195.3792 76.3904
-    Q 181.97504 78.75584 179.6096 92.16
-    Q 177.24416 78.75584 163.84 76.3904
-    Q 177.24416 74.02496 179.6096 60.620799999999996 Z"
-    fill="#ffffff" opacity="0.9"/>
-<path d="M 67.072 153.8048 Q 68.57728 162.33472 77.1072 163.84
-    Q 68.57728 165.34528 67.072 173.8752
-    Q 65.56672 165.34528 57.0368 163.84
-    Q 65.56672 162.33472 67.072 153.8048 Z"
-    fill="#ffffff" opacity="0.7"/>
+<circle cx="128" cy="128" r="125.44" fill="url(#halo)"/>
+<line x1="198.4" y1="128" x2="243.456" y2="128"
+      stroke="#FFE9BF" stroke-width="7" stroke-linecap="round" opacity="0.85"/><line x1="177.78031739553296" y1="177.78031739553293" x2="209.63972052867405" y2="209.639720528674"
+      stroke="#FFE9BF" stroke-width="4" stroke-linecap="round" opacity="0.85"/><line x1="128" y1="198.4" x2="128" y2="243.456"
+      stroke="#FFE9BF" stroke-width="7" stroke-linecap="round" opacity="0.85"/><line x1="78.21968260446707" y1="177.78031739553296" x2="46.360279471325995" y2="209.63972052867405"
+      stroke="#FFE9BF" stroke-width="4" stroke-linecap="round" opacity="0.85"/><line x1="57.599999999999994" y1="128" x2="12.544000000000011" y2="128"
+      stroke="#FFE9BF" stroke-width="7" stroke-linecap="round" opacity="0.85"/><line x1="78.21968260446704" y1="78.21968260446707" x2="46.36027947132595" y2="46.360279471325995"
+      stroke="#FFE9BF" stroke-width="4" stroke-linecap="round" opacity="0.85"/><line x1="127.99999999999999" y1="57.599999999999994" x2="127.99999999999999" y2="12.544000000000011"
+      stroke="#FFE9BF" stroke-width="7" stroke-linecap="round" opacity="0.85"/><line x1="177.78031739553293" y1="78.21968260446704" x2="209.639720528674" y2="46.36027947132595"
+      stroke="#FFE9BF" stroke-width="4" stroke-linecap="round" opacity="0.85"/>
+<circle cx="128" cy="128" r="56.32" fill="url(#g)" stroke="#B57718" stroke-width="8.064"/>
+<circle cx="128" cy="128" r="25.344" fill="#FFFFFF" opacity="0.95"/>
+<path d="M 178.688 60.416 Q 181.72928 74.27072 195.584 77.312
+    Q 181.72928 80.35328 178.688 94.208
+    Q 175.64672 80.35328 161.79199999999997 77.312
+    Q 175.64672 74.27072 178.688 60.416 Z" fill="#ffffff" opacity="0.95"/>
+<path d="M 66.048 156.16 Q 68.07552 165.39648 77.312 167.424
+    Q 68.07552 169.45152000000002 66.048 178.68800000000002
+    Q 64.02048 169.45152000000002 54.784 167.424
+    Q 64.02048 165.39648 66.048 156.16 Z" fill="#ffffff" opacity="0.75"/>
 </svg>

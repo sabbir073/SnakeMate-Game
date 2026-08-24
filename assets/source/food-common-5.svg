@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-<defs><radialGradient id="g" cx="0.5" cy="0.42" r="0.65">
-<stop offset="0" stop-color="#d9b3ff"/><stop offset="1" stop-color="#C58AFF"/>
-</radialGradient><radialGradient id="halo" cx="0.5" cy="0.42" r="0.65">
-<stop offset="0" stop-color="#C58AFF66"/><stop offset="1" stop-color="#C58AFF00"/>
+<defs><radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+<stop offset="0" stop-color="#C58AFF" stop-opacity="0.55"/>
+<stop offset="0.6" stop-color="#C58AFF" stop-opacity="0.28"/>
+<stop offset="1" stop-color="#C58AFF" stop-opacity="0"/>
+</radialGradient><radialGradient id="g" cx="0.5" cy="0.42" r="0.65">
+<stop offset="0" stop-color="#dcb9ff"/><stop offset="1" stop-color="#C58AFF"/>
 </radialGradient></defs>
 
-<circle cx="128" cy="128" r="120.32" fill="url(#halo)"/>
-<circle cx="128" cy="128" r="87.04" fill="url(#g)" stroke="#2B1A3D" stroke-width="12.8"/>
-<path d="M 40.959999999999994 128 A 87.04 87.04 0 0 0 215.04000000000002 128 L 215.04000000000002 128 A 85.2992 85.2992 0 0 1 40.959999999999994 128 Z"
-  fill="#9D5CE6" opacity="0.45"/>
-<ellipse cx="98.40639999999999" cy="93.184" rx="31.334400000000002" ry="20.8896"
-  fill="#ffffff" opacity="0.85" transform="rotate(-26 98.40639999999999 93.184)"/>
-<path d="M 167.168 70.55359999999999 Q 169.25696 82.39103999999999 181.0944 84.47999999999999
-    Q 169.25696 86.56895999999999 167.168 98.40639999999999
-    Q 165.07904000000002 86.56895999999999 153.2416 84.47999999999999
-    Q 165.07904000000002 82.39103999999999 167.168 70.55359999999999 Z"
-    fill="#ffffff" opacity="0.9"/>
+<circle cx="128" cy="128" r="125.44" fill="url(#halo)" opacity="0.5"/>
+<circle cx="128" cy="142.08" r="76.8" fill="#805aa6" stroke="#2B1A3D" stroke-width="11.52"/>
+<circle cx="128" cy="122.368" r="76.8" fill="url(#g)" stroke="#2B1A3D" stroke-width="11.52"/>
+<ellipse cx="101.888" cy="91.648" rx="27.648" ry="16.896" fill="#ffffff" opacity="0.85"
+    transform="rotate(-24 101.888 91.648)"/>
+<path d="M 166.4 73.472 Q 168.61184 83.54816 178.68800000000002 85.75999999999999
+    Q 168.61184 87.97183999999999 166.4 98.04799999999999
+    Q 164.18816 87.97183999999999 154.112 85.75999999999999
+    Q 164.18816 83.54816 166.4 73.472 Z" fill="#ffffff" opacity="0.95"/>
 </svg>

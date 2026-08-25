@@ -660,7 +660,7 @@
         "h": 96
       }
     },
-    "powerup-shield": {
+    "powerup-score_x10": {
       "frame": {
         "x": 1666,
         "y": 162,
@@ -680,7 +680,7 @@
         "h": 96
       }
     },
-    "powerup-speed": {
+    "powerup-score_x5": {
       "frame": {
         "x": 1764,
         "y": 162,
@@ -700,10 +700,50 @@
         "h": 96
       }
     },
-    "powerup-zoom": {
+    "powerup-shield": {
       "frame": {
         "x": 1862,
         "y": 162,
+        "w": 96,
+        "h": 96
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      },
+      "sourceSize": {
+        "w": 96,
+        "h": 96
+      }
+    },
+    "powerup-speed": {
+      "frame": {
+        "x": 0,
+        "y": 260,
+        "w": 96,
+        "h": 96
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 96,
+        "h": 96
+      },
+      "sourceSize": {
+        "w": 96,
+        "h": 96
+      }
+    },
+    "powerup-zoom": {
+      "frame": {
+        "x": 98,
+        "y": 260,
         "w": 96,
         "h": 96
       },
@@ -727,7 +767,7 @@
     "image": "game-atlas.png",
     "size": {
       "w": 2016,
-      "h": 258
+      "h": 356
     },
     "scale": "1"
   }

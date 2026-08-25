@@ -50,8 +50,13 @@ export class Hud {
     const key = kinds.join(",");
     if (key === this.lastEffects) return;
     this.lastEffects = key;
+    const label = (k: string): string =>
+      k === "SCORE_MULTIPLIER" ? "2X SCORE"
+        : k === "SCORE_X5" ? "5X SCORE"
+        : k === "SCORE_X10" ? "10X SCORE"
+        : k.replace(/_/g, " ");
     this.effectsEl.innerHTML = kinds
-      .map((k) => `<span class="effect-chip">${escapeHtml(k.replace(/_/g, " "))}</span>`)
+      .map((k) => `<span class="effect-chip">${escapeHtml(label(k))}</span>`)
       .join("");
   }
 

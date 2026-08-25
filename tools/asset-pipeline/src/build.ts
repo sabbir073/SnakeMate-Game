@@ -47,9 +47,12 @@ async function main(): Promise<void> {
   const generated = new Date().toISOString();
 
   const addEntry = (e: Omit<AssetEntry, "version"> & { data: Buffer }): void => {
+    // hash the bytes for the version, but NEVER embed them — the client
+    // downloads this manifest on every visit
+    const { data, ...meta } = e;
     entries.push({
-      ...e,
-      version: createHash("sha256").update(e.data).digest("hex").slice(0, 10),
+      ...meta,
+      version: createHash("sha256").update(data).digest("hex").slice(0, 10),
     } as AssetEntry);
   };
 

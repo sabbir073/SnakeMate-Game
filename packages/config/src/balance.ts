@@ -45,20 +45,21 @@ export const WORLD = {
 } as const;
 
 export const WORM = {
-  /** Base cruise speed (wu/s). */
-  baseSpeed: 180,
+  /** Base cruise speed (wu/s). Turn rates below are scaled with this so the
+   *  coil/turn-radius geometry (and the encircle-squeeze rules) stay intact
+   *  when the game's pace changes. */
+  baseSpeed: 240,
   /** Boost speed multiplier. */
   boostMultiplier: 1.8,
   /** Max turn rate at minimum mass (rad/s). */
-  turnRateMax: 4.4,
+  turnRateMax: 5.9,
   /** Turn rate floor for huge worms (rad/s). Tuned so a big worm's tightest
-   *  coil (baseSpeed / floor ≈ 82 wu) squeezes BELOW the space a trapped
+   *  coil (baseSpeed / floor ≈ 83 wu) squeezes BELOW the space a trapped
    *  small worm needs to keep dodging (≈ 104 wu incl. body clearances) —
    *  encircled prey slowly runs out of room and dies, wormate-style — while
    *  staying heavy enough that the squeeze closes over several smooth laps,
-   *  never in a sudden dive. At 1.6 the coil bottomed out at ≈ 112 wu and
-   *  trapped worms could orbit inside forever. */
-  turnRateMin: 2.2,
+   *  never in a sudden dive. */
+  turnRateMin: 2.9,
   /** Mass at which turn rate reaches its floor (gentler ramp = smoother). */
   turnRateMassRef: 1000,
   /** Starting mass. */
@@ -76,20 +77,25 @@ export const WORM = {
   /** Path sample spacing (wu) — body follows head path at this resolution. */
   pathSpacing: 10,
   /** Max path samples kept per worm (bounds memory; supports very long worms). */
-  maxPathSamples: 2048,
+  maxPathSamples: 4096,
   /** Spacing between rendered body segments in wu (render-side only). */
   segmentSpacing: 16,
 } as const;
 
 export const BOOST = {
-  /** Mass drained per second of boosting. */
-  massDrainPerSec: 3,
+  /** Boost sheds this FRACTION of current mass per second — proportional like
+   *  wormate, so boost keeps working all the way down to spawn size instead
+   *  of eating a small worm's whole reserve in seconds. */
+  massDrainFracPerSec: 0.015,
+  /** Drain floor (mass/s) so giant worms still pay something noticeable. */
+  massDrainMinPerSec: 0.8,
   /** Mass shed is dropped behind as small food every this many seconds. */
   dropInterval: 0.35,
   /** Value of each boost-dropped food pellet. */
   dropFoodValue: 1,
-  /** Below this mass boosting is unavailable. */
-  minMassToBoost: 12,
+  /** Below this mass boosting is unavailable (a hair above spawn mass, so
+   *  players can boost until they are tiny — exactly spawn-sized). */
+  minMassToBoost: 10.5,
 } as const;
 
 export type FoodKind = "COMMON" | "RARE" | "EPIC" | "BONUS" | "DEATH_LOOT";
@@ -121,24 +127,28 @@ export const FOOD_RULES = {
 
 export type PowerupKind =
   | "SPEED" | "MAGNET" | "DOUBLE_GROWTH" | "SHIELD" | "BOOST_REDUCTION"
-  | "SCORE_MULTIPLIER" | "ZOOM";
+  | "SCORE_MULTIPLIER" | "SCORE_X5" | "SCORE_X10" | "ZOOM";
 
+/** Every powerup lasts 10 seconds after eating (user spec). */
 export const POWERUPS: Record<PowerupKind, {
   durationSec: number; spawnWeight: number; radius: number;
 }> = {
-  SPEED: { durationSec: 8, spawnWeight: 24, radius: 16 },
-  MAGNET: { durationSec: 12, spawnWeight: 24, radius: 16 },
-  DOUBLE_GROWTH: { durationSec: 15, spawnWeight: 20, radius: 16 },
-  SHIELD: { durationSec: 6, spawnWeight: 12, radius: 16 },
-  BOOST_REDUCTION: { durationSec: 15, spawnWeight: 12, radius: 16 },
-  SCORE_MULTIPLIER: { durationSec: 15, spawnWeight: 8, radius: 16 },
-  ZOOM: { durationSec: 12, spawnWeight: 16, radius: 16 },
+  SPEED: { durationSec: 10, spawnWeight: 18, radius: 16 },
+  MAGNET: { durationSec: 10, spawnWeight: 22, radius: 16 },
+  DOUBLE_GROWTH: { durationSec: 10, spawnWeight: 16, radius: 16 },
+  SHIELD: { durationSec: 10, spawnWeight: 14, radius: 16 },
+  BOOST_REDUCTION: { durationSec: 10, spawnWeight: 10, radius: 16 },
+  SCORE_MULTIPLIER: { durationSec: 10, spawnWeight: 14, radius: 16 }, // 2X
+  SCORE_X5: { durationSec: 10, spawnWeight: 7, radius: 16 },
+  SCORE_X10: { durationSec: 10, spawnWeight: 3, radius: 16 },
+  ZOOM: { durationSec: 10, spawnWeight: 16, radius: 16 },
 };
 
 export const POWERUP_RULES = {
-  /** Concurrent powerup pickups present in the world per 25 players. */
-  worldCountPer25Players: 6,
-  maxWorld: 24,
+  /** Concurrent powerup pickups present in the world per 25 players —
+   *  dense enough that players regularly SEE powerup foods on the board. */
+  worldCountPer25Players: 30,
+  maxWorld: 90,
   speedMultiplier: 1.35,
   boostDrainReduction: 0.5,
   scoreMultiplier: 2,

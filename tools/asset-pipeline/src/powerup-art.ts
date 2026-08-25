@@ -12,8 +12,33 @@ export const POWERUP_STYLE: Record<string, { ring: string; deep: string }> = {
   SHIELD: { ring: "#64D2FF", deep: "#3AA4D6" },
   BOOST_REDUCTION: { ring: "#FF8A5C", deep: "#E0642F" },
   SCORE_MULTIPLIER: { ring: "#C58AFF", deep: "#9D5CE6" },
+  SCORE_X5: { ring: "#FFC53D", deep: "#DB9A18" },
+  SCORE_X10: { ring: "#FF4D6D", deep: "#D92A4C" },
   ZOOM: { ring: "#FFE066", deep: "#EBC33B" },
 };
+
+/** The × mark used by all score-multiplier badges. */
+function multX(color: string): string {
+  return `
+<path d="M 66 96 L 106 136 M 106 96 L 66 136" fill="none" stroke="${OUTLINE}" stroke-width="28" stroke-linecap="round"/>
+<path d="M 66 96 L 106 136 M 106 96 L 66 136" fill="none" stroke="${color}" stroke-width="16" stroke-linecap="round"/>`;
+}
+
+/** Stroke-drawn numeral (no fonts baked — hand-made vector digits). */
+function numeral(n: "2" | "5" | "10", color: string): string {
+  const stroke = (d: string): string =>
+    `<path d="${d}" fill="none" stroke="${OUTLINE}" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>` +
+    `<path d="${d}" fill="none" stroke="${color}" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>`;
+  switch (n) {
+    case "2":
+      return stroke("M 136 100 Q 136 78 160 78 Q 184 78 184 100 Q 184 114 148 152 L 188 152");
+    case "5":
+      return stroke("M 186 78 L 142 78 L 138 114 Q 162 104 178 120 Q 192 138 178 152 Q 160 164 140 150");
+    case "10":
+      return stroke("M 126 88 L 140 78 L 140 154") +
+        stroke("M 180 78 Q 202 78 202 116 Q 202 154 180 154 Q 158 154 158 116 Q 158 78 180 78");
+  }
+}
 
 /** Bold glyphs drawn in the badge color, centered in the 256 canvas. */
 function glyph(kind: string, color: string, deep: string): string {
@@ -36,10 +61,11 @@ ${g("M 90 70 L 90 132 a 38 38 0 0 0 76 0 L 166 70 L 196 70 L 196 132 a 68 68 0 0
     case "BOOST_REDUCTION":
       return g("M 128 52 Q 170 96 162 138 Q 188 128 186 104 Q 210 160 170 194 Q 148 210 118 206 Q 78 198 72 152 Q 68 118 96 90 Q 92 122 110 130 Q 100 88 128 52 Z");
     case "SCORE_MULTIPLIER":
-      return `
-<path d="M 78 92 L 122 136 M 122 92 L 78 136" fill="none" stroke="${OUTLINE}" stroke-width="30" stroke-linecap="round"/>
-<path d="M 78 92 L 122 136 M 122 92 L 78 136" fill="none" stroke="${color}" stroke-width="18" stroke-linecap="round"/>
-${g("M 152 84 L 165 114 L 198 116 L 173 137 L 181 168 L 152 151 L 123 168 L 131 137 L 106 116 L 139 114 Z")}`;
+      return multX(color) + numeral("2", color);
+    case "SCORE_X5":
+      return multX(color) + numeral("5", color);
+    case "SCORE_X10":
+      return multX(color) + numeral("10", color);
     case "ZOOM":
       return `
 <circle cx="114" cy="112" r="44" fill="#ffffff" stroke="${OUTLINE}" stroke-width="9"/>

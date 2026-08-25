@@ -3,9 +3,9 @@
 <defs><radialGradient id="face" cx="0.5" cy="0.42" r="0.65">
 <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#EDE6FA"/>
 </radialGradient><radialGradient id="ring" cx="0.5" cy="0.42" r="0.65">
-<stop offset="0" stop-color="#d1a1ff"/><stop offset="1" stop-color="#C58AFF"/>
+<stop offset="0" stop-color="#ff718a"/><stop offset="1" stop-color="#FF4D6D"/>
 </radialGradient><radialGradient id="halo" cx="0.5" cy="0.42" r="0.65">
-<stop offset="0" stop-color="#C58AFF66"/><stop offset="1" stop-color="#C58AFF00"/>
+<stop offset="0" stop-color="#FF4D6D66"/><stop offset="1" stop-color="#FF4D6D00"/>
 </radialGradient></defs>
 
 <circle cx="128" cy="128" r="125.44" fill="url(#halo)"/>
@@ -13,7 +13,7 @@
 <circle cx="128" cy="128" r="79.36" fill="url(#face)" stroke="#2B1A3D" stroke-width="8.064"/>
 <g transform="translate(128 128) scale(0.62) translate(-128 -128)">
 <path d="M 66 96 L 106 136 M 106 96 L 66 136" fill="none" stroke="#2B1A3D" stroke-width="28" stroke-linecap="round"/>
-<path d="M 66 96 L 106 136 M 106 96 L 66 136" fill="none" stroke="#C58AFF" stroke-width="16" stroke-linecap="round"/><path d="M 136 100 Q 136 78 160 78 Q 184 78 184 100 Q 184 114 148 152 L 188 152" fill="none" stroke="#2B1A3D" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/><path d="M 136 100 Q 136 78 160 78 Q 184 78 184 100 Q 184 114 148 152 L 188 152" fill="none" stroke="#C58AFF" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/></g>
+<path d="M 66 96 L 106 136 M 106 96 L 66 136" fill="none" stroke="#FF4D6D" stroke-width="16" stroke-linecap="round"/><path d="M 126 88 L 140 78 L 140 154" fill="none" stroke="#2B1A3D" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/><path d="M 126 88 L 140 78 L 140 154" fill="none" stroke="#FF4D6D" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/><path d="M 180 78 Q 202 78 202 116 Q 202 154 180 154 Q 158 154 158 116 Q 158 78 180 78" fill="none" stroke="#2B1A3D" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/><path d="M 180 78 Q 202 78 202 116 Q 202 154 180 154 Q 158 154 158 116 Q 158 78 180 78" fill="none" stroke="#FF4D6D" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/></g>
 <ellipse cx="97.28" cy="74.752" rx="34.816" ry="16.384"
   fill="#ffffff" opacity="0.65" transform="rotate(-24 97.28 74.752)"/>
 </svg>

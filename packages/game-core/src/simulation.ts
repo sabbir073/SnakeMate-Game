@@ -205,8 +205,14 @@ export class Simulation {
         const reach = a.radius + b.length + b.radius;
         if (dist2(a.x, a.y, b.x, b.y) > reach * reach) continue;
 
-        if (this.headHitsBody(a, b)) {
+        const contact = this.headHitsBody(a, b);
+        if (contact === "body") {
           dead.set(a.id, b.id);
+        } else if (contact === "head") {
+          // head-on crash: the SMALLER worm loses (wormate rule). Only a
+          // near-equal matchup (within 5% mass) takes both worms down —
+          // the symmetric iteration marks each side in its own pass.
+          if (a.mass <= b.mass * 1.05) dead.set(a.id, b.id);
         }
       }
     }
@@ -224,29 +230,35 @@ export class Simulation {
     }
   }
 
-  /** Narrow phase: does worm A's head circle hit worm B's head or body path? */
-  private headHitsBody(a: WormState, b: WormState): boolean {
+  /** Narrow phase: does worm A's head hit worm B — and WHERE?
+   *  "head" = head-on contact (B's head circle or the first couple of body
+   *  radii behind it); "body" = anywhere else along B's body path. */
+  private headHitsBody(a: WormState, b: WormState): "head" | "body" | null {
     const rr = a.radius + b.radius;
     // head-vs-head
-    if (dist2(a.x, a.y, b.x, b.y) <= rr * rr) return true;
+    if (dist2(a.x, a.y, b.x, b.y) <= rr * rr) return "head";
 
     // head vs body capsules along b's path samples
     const path = b.path;
-    if (path.length === 0) return false;
+    if (path.length === 0) return null;
     const maxSamples = Math.min(
       path.length,
       Math.ceil(b.length / WORM.pathSpacing) + 1,
     );
+    // contact within ~2 head radii of B's head still counts as head-on
+    const headZoneSamples = Math.ceil((b.radius * 2) / WORM.pathSpacing);
     let px = b.x;
     let py = b.y;
     const rr2 = rr * rr;
     for (let i = 0; i < maxSamples; i++) {
       const s = path[i]!;
-      if (pointSegmentDist2(a.x, a.y, px, py, s.x, s.y) <= rr2) return true;
+      if (pointSegmentDist2(a.x, a.y, px, py, s.x, s.y) <= rr2) {
+        return i < headZoneSamples ? "head" : "body";
+      }
       px = s.x;
       py = s.y;
     }
-    return false;
+    return null;
   }
 
   // ── food (spec §18, phase 7) ─────────────────────────────────────────────
@@ -322,8 +334,13 @@ export class Simulation {
   }
 
   private eat(worm: WormState, food: FoodState, events: StepEvents): void {
-    const doubleGrowth = (worm.effects.DOUBLE_GROWTH ?? 0) > this.world.tick;
-    const scoreMult = (worm.effects.SCORE_MULTIPLIER ?? 0) > this.world.tick ? 2 : 1;
+    const t = this.world.tick;
+    const doubleGrowth = (worm.effects.DOUBLE_GROWTH ?? 0) > t;
+    // highest active multiplier wins: 10X > 5X > 2X
+    const scoreMult =
+      (worm.effects.SCORE_X10 ?? 0) > t ? 10 :
+      (worm.effects.SCORE_X5 ?? 0) > t ? 5 :
+      (worm.effects.SCORE_MULTIPLIER ?? 0) > t ? 2 : 1;
     worm.mass += food.value * (doubleGrowth ? 2 : 1);
     worm.score += food.value * SCORE.perFoodValue * scoreMult;
     refreshDerived(worm);

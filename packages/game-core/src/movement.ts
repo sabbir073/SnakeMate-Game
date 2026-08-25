@@ -36,9 +36,11 @@ export function stepWormMovement(w: WormState, tick: number): number {
   w.y += Math.sin(w.angle) * moved;
   recordPath(w, moved);
 
-  // boost cost: drain mass, floor at minMass; auto-cancel at floor
+  // boost cost: proportional drain (wormate-style), floor at minMass;
+  // auto-cancel only when truly spawn-sized
   if (w.boosting) {
-    let drain = BOOST.massDrainPerSec * dt;
+    let drain =
+      Math.max(BOOST.massDrainMinPerSec, w.mass * BOOST.massDrainFracPerSec) * dt;
     if ((w.effects.BOOST_REDUCTION ?? 0) > tick) drain *= POWERUP_RULES.boostDrainReduction;
     const newMass = Math.max(WORM.minMass, w.mass - drain);
     if (newMass !== w.mass) {

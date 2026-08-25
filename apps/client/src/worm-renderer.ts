@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { skinById } from "@nibblio/config";
+import { WORM, skinById } from "@nibblio/config";
 import { lengthForMass, radiusForMass } from "@nibblio/game-core";
 import { PathTracker } from "./path-tracker.js";
 import type { PathPoint } from "./path-tracker.js";
@@ -100,7 +100,12 @@ export class WormRenderer {
     this.label.setPosition(x, y);
 
     const radius = radiusForMass(mass);
-    const length = lengthForMass(mass);
+    // never render body beyond the sim's collidable path coverage — the tail
+    // you can see must always be a tail that can kill
+    const length = Math.min(
+      lengthForMass(mass),
+      WORM.maxPathSamples * WORM.pathSpacing - 30,
+    );
     const spacing = Math.max(
       RENDER_SPACING_BASE,
       radius * SPACING_RADIUS_RATIO,
@@ -228,13 +233,18 @@ export class WormRenderer {
       }
     }
 
-    if (effects.includes("SCORE_MULTIPLIER")) {
-      // golden stars orbiting opposite-phase
-      for (let i = 0; i < 2; i++) {
-        const a = -t * 2.8 + i * Math.PI;
+    const multStars = effects.includes("SCORE_X10") ? 4
+      : effects.includes("SCORE_X5") ? 3
+      : effects.includes("SCORE_MULTIPLIER") ? 2 : 0;
+    if (multStars > 0) {
+      // golden stars orbiting evenly-phased — more stars, bigger multiplier
+      const tint = effects.includes("SCORE_X10") ? 0xff4d6d
+        : effects.includes("SCORE_X5") ? 0xffc53d : 0xffd166;
+      for (let i = 0; i < multStars; i++) {
+        const a = -t * 2.8 + (i * Math.PI * 2) / multStars;
         const px = x + Math.cos(a) * radius * 2.2;
         const py = y + Math.sin(a) * radius * 2.2;
-        this.drawStar(px, py, radius * 0.34, 0xffd166);
+        this.drawStar(px, py, radius * 0.34, tint);
       }
     }
 

@@ -9,9 +9,13 @@ import type { PathPoint } from "./path-tracker.js";
  *  matches the sim radius exactly. */
 const SPRITE_CONTENT_RATIO = 1 / (2 * 0.42);
 /** Render-side segment spacing (wu) for a continuous, premium-looking tube.
- *  Grows for huge worms so per-worm sprite count stays bounded. */
+ *  Spacing scales with the body RADIUS (not the body length) so circles stay
+ *  snugly overlapped at every size — a giant worm looks exactly as solid as a
+ *  hatchling, just bigger. The segment cap only kicks in for truly enormous
+ *  worms as a performance backstop. */
 const RENDER_SPACING_BASE = 9;
-const MAX_SEGMENTS = 110;
+const SPACING_RADIUS_RATIO = 0.55; // segment every ~28% of a circle's width
+const MAX_SEGMENTS = 900;
 
 function blendToWhite(color: number, t: number): number {
   const r = (color >> 16) & 255;
@@ -97,7 +101,11 @@ export class WormRenderer {
 
     const radius = radiusForMass(mass);
     const length = lengthForMass(mass);
-    const spacing = Math.max(RENDER_SPACING_BASE, length / MAX_SEGMENTS);
+    const spacing = Math.max(
+      RENDER_SPACING_BASE,
+      radius * SPACING_RADIUS_RATIO,
+      length / MAX_SEGMENTS, // perf backstop for colossal worms only
+    );
     const count = Math.max(4, Math.floor(length / spacing));
     const displaySize = radius * 2 * SPRITE_CONTENT_RATIO;
 

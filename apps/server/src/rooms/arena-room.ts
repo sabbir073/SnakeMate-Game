@@ -38,7 +38,6 @@ export class ArenaRoom extends Room<ArenaState> {
   private bots = new Map<string, { brain: AiBrain; respawnAtTick: number; name: string; skin: string }>();
   private nextBotSerial = 0;
   private nextBotSpawnTick = 0;
-  private nextBotRotateTick = 0;
   /** Persistent identity + per-session gameplay accumulators (spec §91). */
   private guestIds = new Map<string, string>();
   private sessionStats = new Map<string, {
@@ -248,26 +247,12 @@ export class ArenaRoom extends Room<ArenaState> {
   private runBots(): void {
     const tick = this.sim.world.tick;
 
-    if (this.bots.size < AI.maxBots) {
-      // fill phase: bots trickle in one at a time — never all at once
-      if (tick >= this.nextBotSpawnTick) {
-        this.addBot();
-        this.nextBotSpawnTick = tick + Math.round(AI.spawnStaggerSec * SIM.tickRate);
-        if (this.bots.size >= AI.maxBots) {
-          this.nextBotRotateTick = tick + Math.round(AI.rotateIntervalSec * SIM.tickRate);
-        }
-      }
-    } else if (tick >= this.nextBotRotateTick) {
-      // rotation phase: every interval the longest-lived bot dies (1→50,
-      // forever), drops its loot, and the fill phase replaces it with a
-      // brand-new identity — the roster keeps cycling like real churn.
-      for (const [botId] of this.bots) {
-        const worm = this.sim.world.worms.get(botId);
-        if (worm?.alive) this.pendingForceKills.push(botId);
-        this.bots.delete(botId);
-        break; // oldest only (Map preserves insertion order)
-      }
-      this.nextBotRotateTick = tick + Math.round(AI.rotateIntervalSec * SIM.tickRate);
+    // bots trickle in one at a time — never all at once — up to maxBots.
+    // After that they live until something actually kills them; the respawn
+    // path below replaces the fallen with brand-new identities.
+    if (this.bots.size < AI.maxBots && tick >= this.nextBotSpawnTick) {
+      this.addBot();
+      this.nextBotSpawnTick = tick + Math.round(AI.spawnStaggerSec * SIM.tickRate);
     }
 
     // thinking + respawns (a respawned bot rejoins as a new random identity)

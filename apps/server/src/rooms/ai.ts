@@ -66,6 +66,36 @@ export class AiBrain {
     this.wobble = this.rng.range(0.05, 0.22);
   }
 
+  /** If another worm's body surrounds us, returns the ring's center —
+   *  the graceful play is to circle the shrinking space, not charge the wall.
+   *  Detection: bucket nearby enemy body samples into 8 bearing sectors;
+   *  ≥7 occupied sectors from one worm = we are enclosed. */
+  private detectEnclosure(
+    world: Simulation["world"], me: { x: number; y: number; mass: number },
+  ): { cx: number; cy: number } | null {
+    const RANGE = 700;
+    for (const w of world.worms.values()) {
+      if (w.id === this.wormId || !w.alive || w.mass < me.mass * 1.5) continue;
+      if (Math.hypot(w.x - me.x, w.y - me.y) > w.length + RANGE) continue;
+      let sectors = 0;
+      let sx = 0, sy = 0, n = 0;
+      const stride = 4; // path samples every ~10wu — check every ~40wu
+      for (let i = 0; i < w.path.length; i += stride) {
+        const p = w.path[i]!;
+        const dx = p.x - me.x;
+        const dy = p.y - me.y;
+        if (dx * dx + dy * dy > RANGE * RANGE) continue;
+        const sector = Math.floor(((Math.atan2(dy, dx) + Math.PI) / (2 * Math.PI)) * 8) & 7;
+        sectors |= 1 << sector;
+        sx += p.x; sy += p.y; n++;
+      }
+      let occupied = 0;
+      for (let b = 0; b < 8; b++) if (sectors & (1 << b)) occupied++;
+      if (occupied >= 7 && n > 0) return { cx: sx / n, cy: sy / n };
+    }
+    return null;
+  }
+
   think(sim: Simulation): WormInput | null {
     const world = sim.world;
     const me = world.worms.get(this.wormId);
@@ -77,6 +107,20 @@ export class AiBrain {
 
     const size = world.worldSize;
     const margin = 650;
+
+    // 0. trapped inside another worm's coil: circle the free space smoothly,
+    //    hugging its center — survive while room remains, exactly like a
+    //    skilled player (death comes only when the squeeze leaves no space)
+    const trap = this.detectEnclosure(world, me);
+    if (trap) {
+      const toC = Math.atan2(trap.cy - me.y, trap.cx - me.x);
+      const ccw = wrapAngle(toC - Math.PI / 2);
+      const cw = wrapAngle(toC + Math.PI / 2);
+      // keep our current sense of rotation — no panicked 180° flips
+      const keepCcw = Math.abs(wrapAngle(me.angle - ccw)) <= Math.abs(wrapAngle(me.angle - cw));
+      this.angle = keepCcw ? ccw + 0.4 : cw - 0.4; // bias toward the center
+      return { seq: ++this.seq, angle: wrapAngle(this.angle), boost: false };
+    }
 
     // 1. wall avoidance dominates
     if (me.x < margin || me.y < margin || me.x > size - margin || me.y > size - margin) {

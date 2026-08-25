@@ -103,6 +103,8 @@ class ArenaScene extends Phaser.Scene {
   private massZoomEased = CAMERA.baseZoom;
   private minimapCtx: CanvasRenderingContext2D | null = null;
   private minimapFrame = 0;
+  /** Current #1 player's session id (from leaderboard) — marked on the minimap. */
+  private leaderId = "";
   private inputSeq = 0;
   private boostHeld = false;
   private localAlive = true;
@@ -298,6 +300,7 @@ class ArenaScene extends Phaser.Scene {
     const ownId = this.conn.room.sessionId;
     this.conn.onLeaderboard((msg) => {
       this.hud.setLeaderboard(msg, ownId);
+      this.leaderId = msg.top[0]?.id ?? "";
       const mine = msg.top.find((e) => e.id === ownId);
       if (mine) this.localScore = mine.score;
     });
@@ -668,14 +671,28 @@ class ArenaScene extends Phaser.Scene {
     ctx.lineTo(pad + worldSize * scale, pad + (worldSize * scale) / 2);
     ctx.stroke();
 
-    // other worms: tiny neutral dots
-    for (const entry of this.remotes.values()) {
+    // other worms: tiny neutral dots — the #1 leader gets a crowned red marker
+    for (const [id, entry] of this.remotes) {
       const p = entry.buffer.sample(performance.now());
       if (!p || !p.alive) continue;
-      ctx.fillStyle = "rgba(185, 167, 230, 0.7)";
-      ctx.beginPath();
-      ctx.arc(pad + p.x * scale, pad + p.y * scale, 1.6, 0, Math.PI * 2);
-      ctx.fill();
+      const mx = pad + p.x * scale;
+      const my = pad + p.y * scale;
+      if (id === this.leaderId) {
+        ctx.fillStyle = "#FF5C8A";
+        ctx.beginPath();
+        ctx.arc(mx, my, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(mx, my, 4.8, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = "rgba(185, 167, 230, 0.7)";
+        ctx.beginPath();
+        ctx.arc(mx, my, 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     // you: gold dot with glow ring

@@ -75,6 +75,7 @@ check), never merely because code exists. See CLAUDE.md.
 - [x] Round 3: PathTracker tail fix (coiling), resident AI bots playing + ranked, world 18000, square minimap, invite links (?join), global top-10 on home — 23/23 E2E, quality gate green
 - [x] Round 4: staggered 50-bot population, random bot names every spawn, encircle-squeeze physics + 2 regression tests, global top-10 as right-side panel — 32 unit + 23 E2E green, quality gate green
 - [x] Round 5: radius-scaled body spacing (giant worms stay snug), wormate squeeze pacing (floor 2.2, never <2s kill, hold-then-close proven in test), trapped-bot circling behavior, bots live until killed (rotation removed) — 32 unit + 23 E2E green, quality gate green
+- [x] Round 6: leader marker on minimap, intelligent bots (death-loot priority + boost race, lead-intercept hunting, body-ahead avoidance) — 54 unit + 23 E2E green, quality gate green
 
 ## Milestone M5 — VPS release (phases 30–32)
 
